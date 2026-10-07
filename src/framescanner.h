@@ -85,7 +85,7 @@ signals:
 private:
     void setStatus(Status status);
 
-    std::atomic<int> m_frameInterval{4};
+    std::atomic<int> m_frameInterval{2};
     std::atomic<bool> m_paused{false};
     Status m_status = Waiting;
     QString m_pixelFormat;

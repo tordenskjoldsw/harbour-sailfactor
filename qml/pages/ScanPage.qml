@@ -12,7 +12,7 @@ Page {
                                          && Qt.application.state === Qt.ApplicationActive
     property real activeSince: 0
     property int timeToCodeMs: -1
-    property bool reducedResolution: false
+    property bool reducedResolution: true
     property bool restarting: false
     property string viewfinderSizes: ""
 
