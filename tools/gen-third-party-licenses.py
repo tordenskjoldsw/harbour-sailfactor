@@ -23,7 +23,8 @@ TARGET = "aarch64-unknown-linux-gnu"
 RUST_TOOLCHAIN = "1.75"
 # Preferred license files, MIT terms first.
 LICENSE_FILES = ["LICENSE-MIT", "LICENSE-MIT.md", "LICENSE", "LICENSE.md"]
-CHOSEN = {"BSD-3-Clause": "BSD-3-Clause"}
+# Licenses other than MIT, each checked by hand to be permissive.
+CHOSEN = {"BSD-3-Clause", "ISC", "Zlib"}
 
 
 def linked_crates():
@@ -41,14 +42,20 @@ def linked_crates():
     return sorted(crates.items())
 
 
-def chosen_license(name, expression):
+def chosen_licenses(name, expression):
     """The terms SailFactor uses: MIT where offered, otherwise only what
-    CHOSEN lists after a manual check."""
-    if expression in CHOSEN:
-        return CHOSEN[expression]
-    if "MIT" in re.split(r"[\s()/]+", expression):
-        return "MIT"
-    sys.exit(f"{name}: no MIT terms in {expression!r}; check the license and add it to CHOSEN")
+    CHOSEN lists. Every part of an AND expression applies, such as rqrr's
+    "(MIT OR Apache-2.0) AND ISC" for the code it ported from quirc."""
+    chosen = []
+    for part in expression.split(" AND "):
+        part = part.strip().strip("()")
+        if "MIT" in re.split(r"[\s()/]+", part):
+            chosen.append("MIT")
+        elif part in CHOSEN:
+            chosen.append(part)
+        else:
+            sys.exit(f"{name}: no MIT terms in {part!r}; check the license and add it to CHOSEN")
+    return chosen
 
 
 def rust_license():
@@ -57,13 +64,16 @@ def rust_license():
     return pathlib.Path(sysroot) / "share/doc/rust/LICENSE-MIT"
 
 
-def license_text(name, version):
+def license_text(name, version, license_id):
     directory = ROOT / "core/vendor" / f"{name}-{version}"
-    for file_name in LICENSE_FILES:
+    candidates = LICENSE_FILES
+    if license_id != "MIT":
+        candidates = [f"LICENSE-{license_id}", f"LICENSE-{license_id}.md", "LICENSE", "LICENSE.md"]
+    for file_name in candidates:
         path = directory / file_name
         if path.is_file():
             return path.read_text(encoding="utf-8").strip()
-    sys.exit(f"no license file for {name} {version} in {directory}")
+    sys.exit(f"no {license_id} license file for {name} {version} in {directory}")
 
 
 def generate():
@@ -76,11 +86,13 @@ def generate():
         return texts.index(text)
 
     for (name, version), expression in linked_crates():
+        licenses = chosen_licenses(name, expression)
+        text = "\n\n".join(license_text(name, version, license_id) for license_id in licenses)
         packages.append({
             "name": name,
             "version": version,
-            "license": chosen_license(name, expression),
-            "text": text_index(license_text(name, version)),
+            "license": " AND ".join(licenses),
+            "text": text_index(text),
         })
     packages.append({
         "name": "Rust standard library",
