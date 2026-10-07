@@ -1,9 +1,12 @@
 # SailFactor - Project Plan
 
-Status: 2026-10-07 - planning. No code yet. The name was chosen on
-2026-10-07; a dormant GitHub repository `lanurmi/sailfactor` (an integer
-factoring tool, last commit 2014, never in a store) shares it, OpenRepos
-has no match, the Jolla Store was not searchable without an account.
+Status: 2026-10-07 - Phase 0 done: the scaffold builds for aarch64 and
+armv7hl, passes the Harbour validator and runs on the Jolla Phone (cold
+start 436 ms median, `docs/spike-results.md`). Next: Phase 1. The name was
+chosen on 2026-10-07; a dormant GitHub repository `lanurmi/sailfactor` (an
+integer factoring tool, last commit 2014, never in a store) shares it,
+OpenRepos has no match, the Jolla Store was not searchable without an
+account.
 
 SailFactor is the "separate authenticator app" that SailVault's plan
 (section 4 there) left for a later, independent project. It shares no
