@@ -35,9 +35,29 @@ Hardening, checked with `readelf` in both RPMs: a `GNU_RELRO` segment with
 `BIND_NOW` (`FLAGS_1: NOW PIE`), no `.symtab` section. Package size about
 42 KB for each architecture.
 
-## Open
+## On the device (Phase 0, 2026-10-07)
 
-- Install on the Jolla Phone and a first launch: not done yet (needs the
-  install prompt confirmed on the phone).
-- Cold start baseline with `tools/measure-startup.sh`: not measured yet.
-- Device OS version at the time of the first install: not recorded yet.
+Jolla Phone (2026), Sailfish OS 5.2.0.18. `sfdk deploy --sdk` installs
+the aarch64 RPM after the prompt on the phone is confirmed. It sends every
+RPM in `RPMS/`, so an armv7hl package left there fails with "wrong
+architecture" (code 29); keep only the package for the device in
+`RPMS/` when deploying.
+
+Verified on the device: the app installs, starts and shows its page.
+
+## Cold start baseline (Phase 0, 2026-10-07)
+
+`tools/measure-startup.sh`, 11 launches of the 0.1.0 build, from launch to
+the first frame (`CLOCK_BOOTTIME`, `--startup-trace`). The screen must stay
+on for the whole run; a first attempt stopped when the phone went to
+sleep.
+
+| Run | Time |
+|-----|------|
+| First launch | 480 ms |
+| Launches 2 to 11, median | 436 ms |
+| Launches 2 to 11, min / max | 408 ms / 467 ms |
+| Launches 2 to 11, mean | 434 ms |
+
+This is the empty-app baseline for criterion 6 (unlock page visible
+< 1 s after the tap); later phases measure against it.
