@@ -10,3 +10,4 @@ Name=SailFactor
 # directories, so keep both stable once released.
 OrganizationName=de.tordenskjold
 ApplicationName=sailfactor
+Permissions=Camera

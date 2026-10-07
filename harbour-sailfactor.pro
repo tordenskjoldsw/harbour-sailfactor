@@ -1,11 +1,14 @@
 TARGET = harbour-sailfactor
 
 CONFIG += sailfishapp
+QT += multimedia
 
 HEADERS += \
-    src/boottime.h
+    src/boottime.h \
+    src/framescanner.h
 
 SOURCES += \
+    src/framescanner.cpp \
     src/main.cpp
 
 INCLUDEPATH += core/include
@@ -51,6 +54,7 @@ DISTFILES += \
     qml/cover/CoverPage.qml \
     qml/pages/AboutPage.qml \
     qml/pages/MainPage.qml \
+    qml/pages/ScanPage.qml \
     qml/pages/ThirdPartyPage.qml \
     qml/pages/thirdparty.js \
     rpm/harbour-sailfactor.spec \

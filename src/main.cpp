@@ -3,6 +3,7 @@
 #include <QQuickView>
 #include <QScopedPointer>
 #include <QString>
+#include <qqml.h>
 
 #include <cstdio>
 #include <memory>
@@ -10,6 +11,7 @@
 #include <sailfishapp.h>
 
 #include "boottime.h"
+#include "framescanner.h"
 #include "sailfactor_core.h"
 
 namespace {
@@ -33,6 +35,8 @@ int main(int argc, char *argv[])
     // decide the writable data and config directories.
     QCoreApplication::setOrganizationName(QStringLiteral("de.tordenskjold"));
     QCoreApplication::setApplicationName(QStringLiteral("sailfactor"));
+
+    qmlRegisterType<FrameScanner>("harbour.sailfactor", 1, 0, "FrameScanner");
 
     QScopedPointer<QQuickView> view(SailfishApp::createView());
     // Development builds carry SemVer build metadata after "+" (branch, time

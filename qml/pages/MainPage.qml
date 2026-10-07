@@ -13,6 +13,10 @@ Page {
                 text: qsTr("About")
                 onClicked: pageStack.push(Qt.resolvedUrl("AboutPage.qml"))
             }
+            MenuItem {
+                text: qsTr("Test the QR scan")
+                onClicked: pageStack.push(Qt.resolvedUrl("ScanPage.qml"))
+            }
         }
 
         Column {
