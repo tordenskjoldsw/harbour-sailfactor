@@ -11,6 +11,8 @@ publish = false
 crate-type = ["staticlib", "rlib"]
 
 [dependencies]
+rqrr = { version = "0.10", default-features = false }
+zeroize = "1.8"
 
 [profile.release]
 # Unwinding across the C FFI boundary is undefined behavior.
