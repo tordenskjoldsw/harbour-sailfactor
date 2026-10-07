@@ -21,11 +21,15 @@ class FrameScanner : public QAbstractVideoFilter
     Q_PROPERTY(QSize frameSize READ frameSize NOTIFY frameInfoChanged)
     Q_PROPERTY(int bytesPerLine READ bytesPerLine NOTIFY frameInfoChanged)
     Q_PROPERTY(int planeCount READ planeCount NOTIFY frameInfoChanged)
-    Q_PROPERTY(qreal framesPerSecond READ framesPerSecond NOTIFY framesPerSecondChanged)
+    Q_PROPERTY(qreal scanningFramesPerSecond READ scanningFramesPerSecond NOTIFY framesPerSecondChanged)
+    Q_PROPERTY(qreal idleFramesPerSecond READ idleFramesPerSecond NOTIFY framesPerSecondChanged)
     Q_PROPERTY(int decodeCount READ decodeCount NOTIFY decodeStatsChanged)
     Q_PROPERTY(int lastDecodeMs READ lastDecodeMs NOTIFY decodeStatsChanged)
     Q_PROPERTY(int maxDecodeMs READ maxDecodeMs NOTIFY decodeStatsChanged)
     Q_PROPERTY(qreal averageDecodeMs READ averageDecodeMs NOTIFY decodeStatsChanged)
+    Q_PROPERTY(int lastMapMs READ lastMapMs NOTIFY decodeStatsChanged)
+    Q_PROPERTY(int maxMapMs READ maxMapMs NOTIFY decodeStatsChanged)
+    Q_PROPERTY(qreal averageMapMs READ averageMapMs NOTIFY decodeStatsChanged)
     Q_PROPERTY(bool totpUri READ totpUri NOTIFY statusChanged)
     Q_PROPERTY(int payloadLength READ payloadLength NOTIFY statusChanged)
 
@@ -45,11 +49,15 @@ public:
     QSize frameSize() const { return m_frameSize; }
     int bytesPerLine() const { return m_bytesPerLine; }
     int planeCount() const { return m_planeCount; }
-    qreal framesPerSecond() const { return m_framesPerSecond; }
+    qreal scanningFramesPerSecond() const { return m_scanningFramesPerSecond; }
+    qreal idleFramesPerSecond() const { return m_idleFramesPerSecond; }
     int decodeCount() const { return m_decodeCount; }
     int lastDecodeMs() const { return m_lastDecodeMs; }
     int maxDecodeMs() const { return m_maxDecodeMs; }
     qreal averageDecodeMs() const;
+    int lastMapMs() const { return m_lastMapMs; }
+    int maxMapMs() const { return m_maxMapMs; }
+    qreal averageMapMs() const;
     bool totpUri() const { return m_totpUri; }
     int payloadLength() const { return m_payloadLength; }
 
@@ -61,8 +69,8 @@ public:
     // Queued from the render thread.
     Q_INVOKABLE void recordFrameInfo(const QString &pixelFormat, const QString &handleType,
                                      const QSize &frameSize, int bytesPerLine, int planeCount);
-    Q_INVOKABLE void recordFramesPerSecond(qreal framesPerSecond);
-    Q_INVOKABLE void recordDecode(int milliseconds);
+    Q_INVOKABLE void recordFramesPerSecond(qreal framesPerSecond, bool scanning);
+    Q_INVOKABLE void recordDecode(int mapMilliseconds, int decodeMilliseconds);
     Q_INVOKABLE void recordFailure(int status);
     Q_INVOKABLE void recordCode(bool totpUri, int payloadLength);
 
@@ -85,11 +93,15 @@ private:
     QSize m_frameSize;
     int m_bytesPerLine = 0;
     int m_planeCount = 0;
-    qreal m_framesPerSecond = 0;
+    qreal m_scanningFramesPerSecond = 0;
+    qreal m_idleFramesPerSecond = 0;
     int m_decodeCount = 0;
     int m_lastDecodeMs = 0;
     int m_maxDecodeMs = 0;
     qint64 m_totalDecodeMs = 0;
+    int m_lastMapMs = 0;
+    int m_maxMapMs = 0;
+    qint64 m_totalMapMs = 0;
     bool m_totpUri = false;
     int m_payloadLength = 0;
 };

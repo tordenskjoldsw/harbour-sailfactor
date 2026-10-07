@@ -12,6 +12,9 @@ Page {
                                          && Qt.application.state === Qt.ApplicationActive
     property real activeSince: 0
     property int timeToCodeMs: -1
+    property bool reducedResolution: false
+    property bool restarting: false
+    property string viewfinderSizes: ""
 
     function statusText() {
         switch (scanner.status) {
@@ -36,12 +39,27 @@ Page {
         id: camera
 
         captureMode: Camera.CaptureViewfinder
-        cameraState: page.cameraWanted ? Camera.ActiveState : Camera.UnloadedState
+        cameraState: page.cameraWanted && !page.restarting ? Camera.ActiveState : Camera.UnloadedState
         focus.focusMode: Camera.FocusContinuous
+        viewfinder.resolution: page.reducedResolution ? Qt.size(1280, 720) : Qt.size(2560, 1440)
         onCameraStateChanged: {
             if (cameraState === Camera.ActiveState)
                 page.restart()
         }
+        onCameraStatusChanged: {
+            if (cameraStatus === Camera.ActiveStatus && page.viewfinderSizes.length === 0) {
+                page.viewfinderSizes = camera.supportedViewfinderResolutions()
+                    .map(function(size) { return size.width + "x" + size.height }).join(", ")
+            }
+        }
+    }
+
+    // Viewfinder settings take effect when the camera starts again.
+    Timer {
+        id: restartTimer
+
+        interval: 300
+        onTriggered: page.restarting = false
     }
 
     FrameScanner {
@@ -63,6 +81,21 @@ Page {
         contentHeight: column.height
 
         PullDownMenu {
+            MenuItem {
+                text: page.reducedResolution ? qsTr("Viewfinder 2560 x 1440") : qsTr("Viewfinder 1280 x 720")
+                onClicked: {
+                    page.reducedResolution = !page.reducedResolution
+                    page.restarting = true
+                    restartTimer.start()
+                }
+            }
+            MenuItem {
+                text: qsTr("Decode every %1. frame").arg(scanner.frameInterval === 1 ? 4 : scanner.frameInterval / 2)
+                onClicked: {
+                    scanner.frameInterval = scanner.frameInterval === 1 ? 4 : scanner.frameInterval / 2
+                    page.restart()
+                }
+            }
             MenuItem {
                 text: qsTr("Scan again")
                 onClicked: page.restart()
@@ -101,6 +134,7 @@ Page {
                         value: qsTr("%1 ms").arg(page.timeToCodeMs)
                     }
                     DetailItem { label: qsTr("Format"); value: scanner.pixelFormat }
+                    DetailItem { label: qsTr("Viewfinder sizes"); value: page.viewfinderSizes }
                     DetailItem { label: qsTr("Handle"); value: scanner.handleType }
                     DetailItem {
                         label: qsTr("Size")
@@ -111,8 +145,18 @@ Page {
                         value: scanner.bytesPerLine + ", " + scanner.planeCount
                     }
                     DetailItem {
-                        label: qsTr("Frames per second")
-                        value: scanner.framesPerSecond.toFixed(1)
+                        label: qsTr("Frames per second, scanning")
+                        value: scanner.scanningFramesPerSecond.toFixed(1)
+                    }
+                    DetailItem {
+                        label: qsTr("Frames per second, paused")
+                        value: scanner.idleFramesPerSecond.toFixed(1)
+                    }
+                    DetailItem {
+                        label: qsTr("Map last, mean, max")
+                        value: qsTr("%1, %2, %3 ms").arg(scanner.lastMapMs)
+                                                     .arg(scanner.averageMapMs.toFixed(0))
+                                                     .arg(scanner.maxMapMs)
                     }
                     DetailItem {
                         label: qsTr("Decodes")

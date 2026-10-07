@@ -89,13 +89,22 @@ public:
     }
 
 private:
+    // Counts frames per second separately while scanning and while paused,
+    // which shows what the mapping and decoding cost the viewfinder.
     void countFrame()
     {
+        const bool scanning = !m_scanner->paused();
+        if (scanning != m_countingScanning) {
+            m_countingScanning = scanning;
+            m_frames = 0;
+            m_fpsTimer.restart();
+        }
         ++m_frames;
         const qint64 elapsed = m_fpsTimer.elapsed();
         if (elapsed >= 1000) {
             QMetaObject::invokeMethod(m_scanner, "recordFramesPerSecond", Qt::QueuedConnection,
-                                      Q_ARG(qreal, m_frames * 1000.0 / elapsed));
+                                      Q_ARG(qreal, m_frames * 1000.0 / elapsed),
+                                      Q_ARG(bool, scanning));
             m_frames = 0;
             m_fpsTimer.restart();
         }
@@ -130,10 +139,13 @@ private:
             fail(SF_INVALID_ARGUMENT);
             return;
         }
+        QElapsedTimer mapTimer;
+        mapTimer.start();
         if (!frame->map(QAbstractVideoBuffer::ReadOnly)) {
             fail(mapFailed);
             return;
         }
+        const int mapMilliseconds = int(mapTimer.elapsed());
         const int bytesPerLine = frame->bytesPerLine(0);
         if (!m_mappedReported) {
             report(*frame, bytesPerLine, frame->planeCount());
@@ -152,7 +164,7 @@ private:
         frame->unmap();
 
         QMetaObject::invokeMethod(m_scanner, "recordDecode", Qt::QueuedConnection,
-                                  Q_ARG(int, milliseconds));
+                                  Q_ARG(int, mapMilliseconds), Q_ARG(int, milliseconds));
         if (status == SF_OK) {
             const bool totpUri = payload.length >= sizeof totpPrefix - 1
                 && std::memcmp(payload.data, totpPrefix, sizeof totpPrefix - 1) == 0;
@@ -174,6 +186,7 @@ private:
     FrameScanner *m_scanner;
     QElapsedTimer m_fpsTimer;
     int m_frames = 0;
+    bool m_countingScanning = true;
     int m_skipped = 0;
     bool m_mappedReported = false;
     QVideoFrame::PixelFormat m_reportedFormat = QVideoFrame::Format_Invalid;
@@ -202,12 +215,20 @@ qreal FrameScanner::averageDecodeMs() const
     return m_decodeCount > 0 ? qreal(m_totalDecodeMs) / m_decodeCount : 0;
 }
 
+qreal FrameScanner::averageMapMs() const
+{
+    return m_decodeCount > 0 ? qreal(m_totalMapMs) / m_decodeCount : 0;
+}
+
 void FrameScanner::rearm()
 {
     m_decodeCount = 0;
     m_lastDecodeMs = 0;
     m_maxDecodeMs = 0;
     m_totalDecodeMs = 0;
+    m_lastMapMs = 0;
+    m_maxMapMs = 0;
+    m_totalMapMs = 0;
     m_totpUri = false;
     m_payloadLength = 0;
     emit decodeStatsChanged();
@@ -228,20 +249,23 @@ void FrameScanner::recordFrameInfo(const QString &pixelFormat, const QString &ha
     emit frameInfoChanged();
 }
 
-void FrameScanner::recordFramesPerSecond(qreal framesPerSecond)
+void FrameScanner::recordFramesPerSecond(qreal framesPerSecond, bool scanning)
 {
-    m_framesPerSecond = framesPerSecond;
+    (scanning ? m_scanningFramesPerSecond : m_idleFramesPerSecond) = framesPerSecond;
     emit framesPerSecondChanged();
 }
 
-void FrameScanner::recordDecode(int milliseconds)
+void FrameScanner::recordDecode(int mapMilliseconds, int decodeMilliseconds)
 {
     if (m_paused.load())
         return;
     ++m_decodeCount;
-    m_lastDecodeMs = milliseconds;
-    m_maxDecodeMs = qMax(m_maxDecodeMs, milliseconds);
-    m_totalDecodeMs += milliseconds;
+    m_lastDecodeMs = decodeMilliseconds;
+    m_maxDecodeMs = qMax(m_maxDecodeMs, decodeMilliseconds);
+    m_totalDecodeMs += decodeMilliseconds;
+    m_lastMapMs = mapMilliseconds;
+    m_maxMapMs = qMax(m_maxMapMs, mapMilliseconds);
+    m_totalMapMs += mapMilliseconds;
     emit decodeStatsChanged();
     if (m_status == Waiting)
         setStatus(Scanning);
