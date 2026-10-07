@@ -47,8 +47,12 @@ QMAKE_LFLAGS += -Wl,-z,relro,-z,now -s
 
 DISTFILES += \
     qml/harbour-sailfactor.qml \
+    qml/components/Paragraph.qml \
     qml/cover/CoverPage.qml \
+    qml/pages/AboutPage.qml \
     qml/pages/MainPage.qml \
+    qml/pages/ThirdPartyPage.qml \
+    qml/pages/thirdparty.js \
     rpm/harbour-sailfactor.spec \
     harbour-sailfactor.desktop
 

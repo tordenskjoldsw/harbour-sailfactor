@@ -1,0 +1,121 @@
+import QtQuick 2.0
+import Sailfish.Silica 1.0
+import "../components"
+
+Page {
+    id: page
+
+    readonly property string repository: "https://github.com/tordenskjoldsw/harbour-sailfactor"
+
+    allowedOrientations: Orientation.All
+
+    SilicaFlickable {
+        anchors.fill: parent
+        contentHeight: column.height + Theme.paddingLarge
+
+        Column {
+            id: column
+
+            width: parent.width
+            spacing: Theme.paddingLarge
+
+            PageHeader {
+                title: qsTr("About")
+            }
+
+            Image {
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: Theme.iconSizeExtraLarge
+                height: width
+                sourceSize { width: width; height: height }
+                source: "/usr/share/icons/hicolor/172x172/apps/harbour-sailfactor.png"
+            }
+
+            Column {
+                width: parent.width
+
+                Label {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    textFormat: Text.PlainText
+                    font.pixelSize: Theme.fontSizeLarge
+                    color: Theme.highlightColor
+                    text: "SailFactor"
+                }
+
+                Label {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    textFormat: Text.PlainText
+                    font.pixelSize: Theme.fontSizeSmall
+                    color: Theme.secondaryHighlightColor
+                    text: qsTr("Version %1").arg(appVersion)
+                }
+
+                Label {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    visible: appBuild.length > 0
+                    textFormat: Text.PlainText
+                    font.pixelSize: Theme.fontSizeExtraSmall
+                    color: Theme.secondaryColor
+                    text: qsTr("Development build %1").arg(appBuild)
+                }
+            }
+
+            Repeater {
+                model: [
+                    qsTr("I am building SailFactor to keep the second factor of my logins apart from my passwords: TOTP codes on my Sailfish phone, in an encrypted file of their own with its own master password."),
+                    qsTr("The file is a standard KeePass-compatible file, so KeePassXC on a computer can open it and show the same codes. No account, no server, no lock-in."),
+                    qsTr("SailFactor is free software under the MIT license. Read the code, check what I claim here and tell me what you find.")
+                ]
+
+                Paragraph {
+                    color: Theme.highlightColor
+                    text: modelData
+                }
+            }
+
+            Column {
+                width: parent.width
+
+                Repeater {
+                    model: [
+                        { "text": qsTr("Source code"), "url": page.repository },
+                        { "text": qsTr("Report a problem"), "url": page.repository + "/issues" },
+                        { "text": qsTr("Report a security issue privately"),
+                          "url": page.repository + "/security/advisories/new" },
+                        { "text": qsTr("Third-party licenses"), "url": "" }
+                    ]
+
+                    BackgroundItem {
+                        id: link
+
+                        width: parent.width
+                        onClicked: {
+                            if (modelData.url.length > 0)
+                                Qt.openUrlExternally(modelData.url)
+                            else
+                                pageStack.push(Qt.resolvedUrl("ThirdPartyPage.qml"))
+                        }
+
+                        Label {
+                            x: Theme.horizontalPageMargin
+                            width: parent.width - 2 * Theme.horizontalPageMargin
+                            anchors.verticalCenter: parent.verticalCenter
+                            textFormat: Text.PlainText
+                            truncationMode: TruncationMode.Fade
+                            color: link.highlighted ? Theme.highlightColor : Theme.primaryColor
+                            text: modelData.text
+                        }
+                    }
+                }
+            }
+
+            Paragraph {
+                font.pixelSize: Theme.fontSizeExtraSmall
+                color: Theme.secondaryColor
+                text: qsTr("Copyright 2026 Tobias Kaminski. SailFactor is an independent project and not affiliated with KeePass, KeePassXC or Jolla.")
+            }
+        }
+
+        VerticalScrollDecorator {}
+    }
+}
