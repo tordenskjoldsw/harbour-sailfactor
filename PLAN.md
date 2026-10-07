@@ -326,9 +326,11 @@ growing the feature set.
 
 ### Phase 7 - After the first release
 
-- Import: `otpauth-migration://` QR codes (Google Authenticator export,
-  protobuf), entries with `otp` attributes from another KDBX file (move
-  them out of a password manager), Aegis and andOTP JSON if demand shows
+- Import, first after the release, since it carries the move from
+  Android: Aegis vault files (encrypted and plain, read only, never
+  written) and `otpauth-migration://` QR codes (Google Authenticator
+  export, protobuf); then entries with `otp` attributes from another KDBX
+  file (move them out of a password manager); andOTP JSON if demand shows
 - Show an account as a QR code for moving it to another device
 - Warning with a time estimate for slow KDF parameters
 - Quick unlock as decided in section 14, if not already in Phase 3
@@ -419,8 +421,21 @@ Decided:
   other. SailVault's `CLAUDE.md` gets a one-line note that fixes in
   `core/src/kdbx/` also apply to SailFactor (to be added in SailVault
   with the maintainer's approval).
-- Storage format (2026-10-07): KDBX4 with KeePassXC's `otp` attribute as
-  the only storage; no app-specific format.
+- Storage format (2026-10-07, confirmed after weighing alternatives the
+  same day): KDBX4 with KeePassXC's `otp` attribute as the only storage;
+  no app-specific format. Considered and rejected:
+  - Aegis vault (JSON, AES-256-GCM, scrypt per slot, 32 MiB by default):
+    less code and no merge while only the phone writes, but the only
+    other reader is Aegis on Android, the platform the users are leaving.
+    Moving from Aegis is a one-time import (Phase 7), which needs a reader
+    only, independent of the storage format.
+  - age with a list of `otpauth://` URIs: the smallest format, readable
+    with the `age` command line tool on any PC, but no app shows codes
+    from it, and moving from Aegis would still need its own import.
+  KDBX4 wins on recovery, the most important case for an authenticator:
+  KeePassXC on any desktop and KDBX clients on Sailfish read the backup.
+  It reuses SailVault's reviewed KDBX code and Argon2id levels measured
+  on the device, and the merge for files also edited in KeePassXC.
 - HOTP (2026-10-07): not supported, see section 4.
 - Separation (2026-10-07): SailFactor never opens SailVault's file; a move
   of `otp` attributes from a vault is an import, Phase 7.
