@@ -1,0 +1,38 @@
+# AI agent instruction and planning files (maintainer's working documents)
+CLAUDE.md
+CLAUDE.local.md
+AGENT.md
+AGENTS.md
+GEMINI.md
+COPILOT.md
+.claude/
+.cursor/
+.cursorrules
+.windsurfrules
+.aider*
+IMPLEMENTATION.md
+
+# Rust (host and qmake build)
+/core/target/
+/rust-target/
+/cargo-home/
+
+# sfdk / qmake build output
+/RPMS/
+/build*/
+/harbour-sailfactor
+/documentation.list
+*.o
+*.so
+*.a
+Makefile
+.qmake.stash
+*.pro.user*
+moc_*.cpp
+qrc_*.cpp
+*.qm
+
+# Editors
+.vscode/
+.idea/
+*.swp
