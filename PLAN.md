@@ -35,7 +35,7 @@ the user's Nextcloud like SailVault's database.
 | 3 | Secure unlock | The file unlocks with a master password (and optional key file); the KDF runs in the Rust core off the UI thread; key material and secrets stay in the core and are zeroized on lock; nothing on disk unlocks the file without the password |
 | 4 | Lossless KeePassXC round trip | A file written by SailFactor opens in KeePassXC and shows the same codes; a file edited by KeePassXC (new entry with TOTP, renamed entry) reopens in SailFactor with nothing lost |
 | 5 | No data loss on sync | Concurrent edits on phone and PC merge like KeePassXC; the phone never overwrites a changed remote file without merging |
-| 6 | Fast daily use | Unlock page visible < 1 s after tap; code list visible < 0.3 s after key derivation; a scanned QR code is recognized within 2 s in daylight |
+| 6 | Fast daily use | Unlock page visible < 1 s after tap; code list visible < 0.3 s after key derivation; a QR code shown on a screen is recognized within 2 s |
 | 7 | Native UI | Silica components only; passes the Sailfish UI "Definition of Done" checklist |
 
 ## 3. Positioning (as of 2026-10)
@@ -265,8 +265,8 @@ The one thing SailVault's experience does not cover.
 - Validator passes with `QtMultimedia 5.6` and the `Camera` permission
 - Results in `docs/spike-results.md`
 
-Exit: a test QR code with an `otpauth://` URI is decoded on the device
-within 2 s in daylight; the RPM passes the validator.
+Exit: a test QR code with an `otpauth://` URI, shown on a screen, is
+decoded on the device within 2 s; the RPM passes the validator.
 
 ### Phase 2 - TOTP core and KDBX copy
 
