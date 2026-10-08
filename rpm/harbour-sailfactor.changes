@@ -1,4 +1,4 @@
-* Wed Oct 08 2026 Tobias Kaminski <instance_maintainer@protonmail.com> - 0.1.0-1
+* Thu Oct 08 2026 Tobias Kaminski <instance_maintainer@protonmail.com> - 0.1.0-1
 - First release: TOTP codes in an encrypted KeePass-compatible file of
   their own, apart from the password manager
 - Add accounts by scanning a QR code or by typing the secret
