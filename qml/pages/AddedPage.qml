@@ -8,6 +8,9 @@ Page {
     id: page
 
     readonly property bool withKeyFile: authenticator.addedOriginals.length > 1
+    // Counted once the file is open; passwords without a code are warned
+    // about, those next to a code only mentioned (PLAN.md section 14).
+    property var passwords: authenticator.passwordCounts()
 
     function openAccounts() {
         pageStack.replace(Qt.resolvedUrl("AccountListPage.qml"))
@@ -59,6 +62,19 @@ Page {
                 visible: page.withKeyFile
                 color: Theme.highlightColor
                 text: qsTr("Keep a copy of the key file away from this phone. Without it, the file cannot be opened if the phone is lost.")
+            }
+
+            Paragraph {
+                visible: page.passwords.withoutCode > 0
+                color: Theme.errorColor
+                text: qsTr("This file holds %n password(s) without a one-time code. SailFactor is for the second factor; passwords belong in your password manager. The account list marks these entries.", "", page.passwords.withoutCode)
+            }
+
+            Paragraph {
+                visible: page.passwords.withCode > 0
+                font.pixelSize: Theme.fontSizeSmall
+                color: Theme.secondaryHighlightColor
+                text: qsTr("%n account(s) also store a password next to the code, as KeePassXC login entries do. SailFactor keeps them and never shows them.", "", page.passwords.withCode)
             }
 
             Button {

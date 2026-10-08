@@ -22,6 +22,11 @@ Page {
     property bool finished
     property string resultText
     property string errorText
+    // The copy holds passwords without a one-time code; nothing is merged
+    // unless the user confirms (PLAN.md section 14).
+    property bool confirming
+    property int passwordsWithoutCode
+    property int passwordsWithCode
 
     function fileName(path) {
         return path.substring(path.lastIndexOf("/") + 1)
@@ -68,6 +73,11 @@ Page {
     backNavigation: !merging
 
     Component.onCompleted: authenticator.mergeFile(path)
+    // Leaving the page while it asks means no.
+    Component.onDestruction: {
+        if (confirming)
+            authenticator.cancelMerge()
+    }
 
     RemorsePopup {
         id: remorse
@@ -87,7 +97,13 @@ Page {
     Connections {
         target: authenticator
         onMergeNeedsPassword: page.needsPassword = true
+        onMergeNeedsConfirmation: {
+            page.passwordsWithoutCode = withoutCode
+            page.passwordsWithCode = withCode
+            page.confirming = true
+        }
         onMergeFinished: {
+            page.confirming = false
             page.finished = true
             page.resultText = page.summary(added, modified, moved, deleted)
         }
@@ -158,6 +174,38 @@ Page {
                 enabled: passwordField.text.length > 0 || page.hasKeyFile
                 text: qsTr("Merge")
                 onClicked: page.mergeWithPassword()
+            }
+
+            Paragraph {
+                visible: page.confirming
+                color: Theme.errorColor
+                text: qsTr("This file holds %n password(s) without a one-time code. SailFactor is for the second factor; passwords belong in your password manager. Merging copies them into SailFactor's file, and a sync takes them to Nextcloud.", "", page.passwordsWithoutCode)
+            }
+
+            Paragraph {
+                visible: page.confirming && page.passwordsWithCode > 0
+                font.pixelSize: Theme.fontSizeSmall
+                color: Theme.secondaryHighlightColor
+                text: qsTr("%n account(s) also store a password next to the code, as KeePassXC login entries do.", "", page.passwordsWithCode)
+            }
+
+            Button {
+                anchors.horizontalCenter: parent.horizontalCenter
+                visible: page.confirming
+                text: qsTr("Cancel")
+                onClicked: {
+                    authenticator.cancelMerge()
+                    page.confirming = false
+                    pageStack.pop()
+                }
+            }
+
+            Button {
+                anchors.horizontalCenter: parent.horizontalCenter
+                visible: page.confirming
+                enabled: !authenticator.busy
+                text: qsTr("Merge anyway")
+                onClicked: authenticator.confirmMerge()
             }
 
             Paragraph {

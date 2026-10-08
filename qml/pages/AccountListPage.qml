@@ -14,11 +14,15 @@ Page {
         return code.substring(0, half) + " " + code.substring(half)
     }
 
-    function kindText(kind) {
+    function kindText(kind, hasPassword) {
         switch (kind) {
         case AccountListModel.Hotp: return qsTr("Counter-based code, not supported")
         case AccountListModel.Unreadable: return qsTr("Its settings cannot be read")
-        case AccountListModel.NoCode: return qsTr("No one-time code")
+        case AccountListModel.NoCode:
+            // A password without a second factor belongs in the password
+            // manager (PLAN.md section 14).
+            return hasPassword ? qsTr("Holds a password, keep it in your password manager")
+                               : qsTr("No one-time code")
         default: return ""
         }
     }
@@ -177,8 +181,9 @@ Page {
                     textFormat: Text.PlainText
                     truncationMode: TruncationMode.Fade
                     font.pixelSize: Theme.fontSizeExtraSmall
-                    color: item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
-                    text: item.hasCode ? model.name : page.kindText(model.kind)
+                    color: model.kind === AccountListModel.NoCode && model.hasPassword ? Theme.errorColor
+                         : item.highlighted ? Theme.secondaryHighlightColor : Theme.secondaryColor
+                    text: item.hasCode ? model.name : page.kindText(model.kind, model.hasPassword)
                 }
             }
 
