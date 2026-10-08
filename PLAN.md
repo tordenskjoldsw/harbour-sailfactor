@@ -1,9 +1,10 @@
 # SailFactor - Project Plan
 
-Status: 2026-10-08 - Phases 0 and 1 done: the scaffold builds for aarch64
+Status: 2026-10-08 - Phases 0 to 2 done: the scaffold builds for aarch64
 and armv7hl and passes the Harbour validator; on the Jolla Phone it starts
 in 436 ms (median) and the camera decodes a QR code shown on a screen in
-1387 ms (`docs/spike-results.md`). Next: Phase 2. The name was chosen on
+1387 ms (`docs/spike-results.md`); the core reads, computes and writes
+TOTP accounts as KeePassXC does. Next: Phase 3. The name was chosen on
 2026-10-07; a dormant GitHub repository `lanurmi/sailfactor` (an integer
 factoring tool, last commit 2014, never in a store) shares it, OpenRepos
 has no match, the Jolla Store was not searchable without an account.
@@ -286,11 +287,14 @@ decoded on the device within 2 s; the RPM passes the validator.
   against KeePassXC
 - Account model on top of the KDBX entry model: list, add, edit, delete,
   code for the current step and the remaining seconds
-- C FFI with opaque handles: open, create, list, code for an entry, add
-  from URI, add from fields, edit, delete, save, lock, decode QR buffer
-- A fixture database with TOTP entries saved by the KeePassXC GUI (the
-  steps go into `core/tests/fixtures/README.md`), so criterion 4 is tested
-  against a file KeePassXC wrote, not one SailFactor wrote
+- C FFI with opaque handles: open, create, list, code for an entry,
+  pending accounts from a camera frame, a URI or a typed secret (the QR
+  payload never leaves the core), add, rename, delete, save, lock
+- A fixture written by keepassxc-cli with one entry per form KeePassXC
+  reads (`tools/gen-totp-fixture.py`), compared with `keepassxc-cli show
+  -t`; accounts written by SailFactor are checked the same way. A fixture
+  made in the KeePassXC GUI was dropped on 2026-10-08 as not needed: the
+  scripted one covers every form KeePassXC reads
 
 Exit: all vectors pass; the KeePassXC fixture produces the same codes as
 `keepassxc-cli show -t`.
