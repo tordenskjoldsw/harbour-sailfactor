@@ -182,5 +182,7 @@ file. Verified on the device: a new test code is scanned at once with the
 bounded frame copy; after the first save `backups/` is `drwx------`
 (it was `drwxr-xr-x`; the data directory and `databases/` were already
 owner-only, files and backups 0600); a lock during a save empties the
-list at once; Silica's remorse text shows an issuer as plain text. The
+list at once; Silica's remorse text shows an issuer as plain text.
+Regression: renaming, deleting, the idle lock and the lock after 30
+seconds in the background ("Locked automatically") work as in 0.1.0. The
 details are in the review.

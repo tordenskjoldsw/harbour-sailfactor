@@ -424,3 +424,7 @@ Verified on the device:
   the list emptied at once and the unlock page followed (L2).
 - An issuer `<b>bold</b>` shows with its angle brackets in the list and
   in the remorse text (L9).
+- Regression: renaming and deleting work; the idle lock works; after
+  30 seconds in the background the app is locked and the unlock page says
+  "Locked automatically". Copying a code and the clipboard clear were not
+  checked again in this run (verified for 0.1.0 in Phase 3).
