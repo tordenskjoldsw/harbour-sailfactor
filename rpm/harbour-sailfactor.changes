@@ -1,3 +1,13 @@
+* Thu Oct 08 2026 Tobias Kaminski <instance_maintainer@protonmail.com> - 0.3.0-1
+- Sync with your own Nextcloud while the app runs; changes on the phone
+  and on the computer are merged as KeePassXC merges them
+- Merge a copy of the file from Documents or Downloads
+- A warning when a file brings passwords without a one-time code, which
+  belong in the password manager; the list marks such entries
+- Empty the recycle bin in the settings, where deleted accounts kept
+  their secrets
+- New permission: Internet, for the Nextcloud sync
+
 * Thu Oct 08 2026 Tobias Kaminski <instance_maintainer@protonmail.com> - 0.2.0-1
 - Add a file from KeePassXC from Documents or Downloads, with or without
   a key file; a KDBX 3.1 file is stored as KDBX 4 with Argon2id
