@@ -144,9 +144,12 @@ void AccountListModel::reload()
 {
     if (!m_complete)
         return;
+    // Asking for the handle checks the lock deadlines, and a lock reloads
+    // the list again: ask before the reset, so that reload runs on its own
+    // instead of inside this one.
+    const SfDatabase *database = m_authenticator ? m_authenticator->database() : nullptr;
     beginResetModel();
     m_items.clear();
-    const SfDatabase *database = m_authenticator ? m_authenticator->database() : nullptr;
     SfAccountList *found = nullptr;
     if (database && sf_account_list(database, &found) == SF_OK) {
         const CoreAccountList list(found);
