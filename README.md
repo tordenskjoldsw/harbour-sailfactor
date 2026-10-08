@@ -1,5 +1,7 @@
 # SailFactor
 
+![SailFactor: authenticator for Sailfish OS](docs/images/cover.png)
+
 A TOTP authenticator for Sailfish OS that keeps the second factor apart
 from the password manager. The accounts live in an encrypted file of their
 own, with its own master password, in the standard KeePass (KDBX 4) format:
@@ -12,6 +14,14 @@ protection against a compromised phone, which holds both apps.
 **Status:** version 0.3.0, tested on the Jolla Phone with Sailfish OS
 5.2. Not in the Jolla Store yet; build the RPM yourself as
 described below. The full plan is in [PLAN.md](PLAN.md).
+
+<p align="center">
+  <img src="docs/images/screenshot-1-accounts.jpg" width="30%" alt="Account list with codes and countdown rings">
+  <img src="docs/images/screenshot-2-add.jpg" width="30%" alt="Typing in an account">
+  <img src="docs/images/screenshot-3-settings.jpg" width="30%" alt="Settings with sync, merging and the file">
+</p>
+
+The screenshots show a demo file with made-up accounts.
 
 ## Features
 
