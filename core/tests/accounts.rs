@@ -139,7 +139,9 @@ fn renaming_keeps_the_previous_names_in_the_history() {
 fn deleting_moves_to_the_recycle_bin_first() {
     let mut database = open();
     let uuid = uuid_of(&database, "Steam");
+    assert_eq!(accounts::deletes_permanently(&database, &uuid), Ok(false));
     assert_eq!(accounts::delete(&mut database, &uuid, NOW), Ok(false));
+    assert_eq!(accounts::deletes_permanently(&database, &uuid), Ok(true));
     let listed = accounts::list(&database).unwrap();
     assert_eq!(listed.len(), 11);
     assert!(listed.iter().all(|account| account.uuid != uuid));

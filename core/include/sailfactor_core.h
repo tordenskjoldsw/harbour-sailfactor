@@ -115,6 +115,9 @@ int32_t sf_account_add(SfDatabase *database, const SfPending *pending, const uin
 int32_t sf_account_rename(SfDatabase *database, const uint8_t *uuid, const uint8_t *issuer,
                           size_t issuer_length, const uint8_t *name, size_t name_length,
                           int64_t now, bool *changed_out);
+/* Whether sf_account_delete would remove the account for good. */
+int32_t sf_account_deletes_permanently(const SfDatabase *database, const uint8_t *uuid,
+                                       bool *permanent_out);
 /* To the recycle bin, or for good when already there; permanent_out says which. */
 int32_t sf_account_delete(SfDatabase *database, const uint8_t *uuid, int64_t now,
                           bool *permanent_out);

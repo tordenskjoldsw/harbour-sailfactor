@@ -287,6 +287,34 @@ pub unsafe extern "C" fn sf_account_rename(
     }
 }
 
+/// Whether `sf_account_delete` would remove the account for good, so the
+/// confirmation can say so.
+///
+/// # Safety
+///
+/// `database` must be a live handle; `uuid` valid for 16 bytes;
+/// `permanent_out` valid for one write.
+#[no_mangle]
+pub unsafe extern "C" fn sf_account_deletes_permanently(
+    database: *const SfDatabase,
+    uuid: *const u8,
+    permanent_out: *mut bool,
+) -> i32 {
+    // SAFETY: guaranteed by the caller.
+    let (Some(database), Some(uuid), Some(permanent_out)) =
+        (unsafe { (database.as_ref(), read_uuid(uuid), permanent_out.as_mut()) })
+    else {
+        return SF_INVALID_ARGUMENT;
+    };
+    match accounts::deletes_permanently(&database.database, &uuid) {
+        Ok(permanent) => {
+            *permanent_out = permanent;
+            SF_OK
+        }
+        Err(error) => kdbx_status(error),
+    }
+}
+
 /// Moves an account to the recycle bin, or removes it for good when it is
 /// already there or the bin is off; `permanent_out` tells which.
 ///

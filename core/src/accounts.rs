@@ -148,6 +148,15 @@ pub fn rename(
     database.update_entry(uuid, &[(TITLE, issuer), (USER_NAME, name)], now)
 }
 
+/// Whether `delete` would remove the account for good instead of moving it
+/// to the recycle bin, which happens when the file has the bin turned off.
+pub fn deletes_permanently(
+    database: &Database,
+    uuid: &[u8; UUID_LENGTH],
+) -> Result<bool, KdbxError> {
+    database.deletes_permanently(uuid)
+}
+
 /// Moves an account to the recycle bin, or removes it for good when it is
 /// already there or the bin is off. Returns whether it was removed for
 /// good.
