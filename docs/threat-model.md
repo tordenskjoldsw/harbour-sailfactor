@@ -20,6 +20,14 @@ manager's file or its master password leaks, the codes stay safe. This only
 holds when the two master passwords differ; the app says so when a file is
 created.
 
+The separation also only holds while passwords stay out of this file.
+SailFactor never writes a password, but a file added, merged or synced
+from KeePassXC can bring some in. The app keeps them, since deleting them
+would delete them on the computer too, and never shows them. It counts
+entries with a password and no one-time code when a file is added or
+merged, says that passwords belong in the password manager, asks before a
+merge brings them in, and marks them in the account list.
+
 The separation does not protect against a compromised phone: it holds both
 apps, and whoever controls it can wait for both to be unlocked.
 
