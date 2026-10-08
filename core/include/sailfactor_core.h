@@ -88,6 +88,9 @@ void sf_bytes_free(SfBytes bytes);
  * themselves. sf_database_free locks the file and wipes everything
  * decrypted.
  */
+/* The format version of a KDBX file from its first twelve bytes. */
+int32_t sf_kdbx_version(const uint8_t *data, size_t data_length, uint16_t *major,
+                        uint16_t *minor);
 int32_t sf_database_open(const uint8_t *data, size_t data_length, const uint8_t *password,
                          size_t password_length, bool has_password, const uint8_t *key_file,
                          size_t key_file_length, SfDatabase **out);
@@ -95,6 +98,10 @@ int32_t sf_database_create(const uint8_t *password, size_t password_length, cons
                            size_t name_length, uint32_t level, int64_t now, SfDatabase **out,
                            SfBytes *file_out);
 int32_t sf_database_save(const SfDatabase *database, SfBytes *out);
+/* Whether the file was read from KDBX 3.1; it is saved as KDBX 4. */
+int32_t sf_database_from_kdbx3(const SfDatabase *database, bool *from_kdbx3);
+/* Argon2id at SF_KDF_* from the next save on. */
+int32_t sf_database_set_kdf_level(SfDatabase *database, uint32_t level);
 void sf_database_free(SfDatabase *database);
 
 /*

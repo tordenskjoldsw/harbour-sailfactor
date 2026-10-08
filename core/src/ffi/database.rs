@@ -4,7 +4,7 @@ use super::{
     bytes, kdbx_status, utf8, SfBytes, SfDatabase, SF_INVALID_ARGUMENT, SF_KDF_HIGH,
     SF_KDF_MAXIMUM, SF_KDF_STANDARD, SF_OK,
 };
-use crate::kdbx::{CompositeKey, Database, KdfLevel};
+use crate::kdbx::{self, CompositeKey, Database, KdfLevel};
 
 fn kdf_level(level: u32) -> Option<KdfLevel> {
     match level {
@@ -13,6 +13,80 @@ fn kdf_level(level: u32) -> Option<KdfLevel> {
         SF_KDF_MAXIMUM => Some(KdfLevel::Maximum),
         _ => None,
     }
+}
+
+/// The format version of a KDBX file from its first twelve bytes, so a
+/// file can be named before it is unlocked. `SF_NOT_KDBX` for anything
+/// else.
+///
+/// # Safety
+///
+/// `data` must be null or valid for reads of `data_length` bytes; `major`
+/// and `minor` valid for one write each.
+#[no_mangle]
+pub unsafe extern "C" fn sf_kdbx_version(
+    data: *const u8,
+    data_length: usize,
+    major: *mut u16,
+    minor: *mut u16,
+) -> i32 {
+    // SAFETY: the caller guarantees the pointers as documented.
+    let (Some(major), Some(minor)) = (unsafe { major.as_mut() }, unsafe { minor.as_mut() }) else {
+        return SF_INVALID_ARGUMENT;
+    };
+    *major = 0;
+    *minor = 0;
+    // SAFETY: as above.
+    let Some(data) = (unsafe { bytes(data, data_length) }) else {
+        return SF_INVALID_ARGUMENT;
+    };
+    match kdbx::version(data) {
+        Ok((file_major, file_minor)) => {
+            *major = file_major;
+            *minor = file_minor;
+            SF_OK
+        }
+        Err(error) => kdbx_status(error),
+    }
+}
+
+/// Whether the open file was read from KDBX 3.1; it is saved as KDBX 4.
+///
+/// # Safety
+///
+/// `database` must be a live handle; `from_kdbx3` valid for one write.
+#[no_mangle]
+pub unsafe extern "C" fn sf_database_from_kdbx3(
+    database: *const SfDatabase,
+    from_kdbx3: *mut bool,
+) -> i32 {
+    // SAFETY: the caller guarantees both pointers as documented.
+    let Some(from_kdbx3) = (unsafe { from_kdbx3.as_mut() }) else {
+        return SF_INVALID_ARGUMENT;
+    };
+    *from_kdbx3 = false;
+    // SAFETY: as above.
+    let Some(database) = (unsafe { database.as_ref() }) else {
+        return SF_INVALID_ARGUMENT;
+    };
+    *from_kdbx3 = database.database.from_kdbx3();
+    SF_OK
+}
+
+/// Switches the file to Argon2id at `SF_KDF_*` from the next save on, as
+/// for a KDBX 3.1 file that is stored as KDBX 4.
+///
+/// # Safety
+///
+/// `database` must be a live handle not in use by another thread.
+#[no_mangle]
+pub unsafe extern "C" fn sf_database_set_kdf_level(database: *mut SfDatabase, level: u32) -> i32 {
+    // SAFETY: the caller guarantees the handle as documented.
+    let (Some(database), Some(level)) = (unsafe { database.as_mut() }, kdf_level(level)) else {
+        return SF_INVALID_ARGUMENT;
+    };
+    database.database.set_kdf_level(level);
+    SF_OK
 }
 
 /// Opens a KDBX 4 file, or a KDBX 3.1 file as KDBX 4. At least one of

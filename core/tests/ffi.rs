@@ -8,7 +8,8 @@ use sailfactor_core::ffi::accounts::{
     sf_account_rename,
 };
 use sailfactor_core::ffi::database::{
-    sf_database_create, sf_database_free, sf_database_open, sf_database_save,
+    sf_database_create, sf_database_free, sf_database_from_kdbx3, sf_database_open,
+    sf_database_save, sf_database_set_kdf_level, sf_kdbx_version,
 };
 use sailfactor_core::ffi::pending::{
     sf_pending_code, sf_pending_free, sf_pending_from_secret, sf_pending_from_uri, sf_pending_text,
@@ -17,11 +18,12 @@ use sailfactor_core::ffi::{
     sf_bytes_free, sf_string_free, SfAccountList, SfBytes, SfDatabase, SfPending, SfString,
     SF_ALGORITHM_SHA256, SF_ENCODER_DECIMAL, SF_ENCODER_STEAM, SF_HOTP, SF_INVALID_ARGUMENT,
     SF_INVALID_CREDENTIALS, SF_INVALID_SECRET, SF_INVALID_SETTINGS, SF_KDF_STANDARD, SF_KIND_HOTP,
-    SF_KIND_NO_CODE, SF_KIND_TOTP, SF_NOT_FOUND, SF_NOT_OTPAUTH, SF_NO_CODE, SF_OK, SF_TEXT_ISSUER,
-    SF_TEXT_NAME, SF_UUID_LENGTH,
+    SF_KIND_NO_CODE, SF_KIND_TOTP, SF_NOT_FOUND, SF_NOT_KDBX, SF_NOT_OTPAUTH, SF_NO_CODE, SF_OK,
+    SF_TEXT_ISSUER, SF_TEXT_NAME, SF_UUID_LENGTH,
 };
 
 const FIXTURE: &[u8] = include_bytes!("fixtures/totp-entries.kdbx");
+const KDBX31: &[u8] = include_bytes!("fixtures/kdbx31-aeskdf.kdbx");
 const PASSWORD: &[u8] = b"sailvault-fixture";
 const NOW: i64 = 1_790_000_000;
 const EXAMPLE_URI: &str =
@@ -383,4 +385,65 @@ fn a_created_file_opens_with_its_password() {
         (status, refused.is_null(), no_file.data.is_null()),
         (SF_INVALID_ARGUMENT, true, true)
     );
+}
+
+fn version(data: &[u8]) -> Result<(u16, u16), i32> {
+    let (mut major, mut minor) = (7, 7);
+    // SAFETY: data is a live slice; major and minor are locals.
+    let status = unsafe { sf_kdbx_version(data.as_ptr(), data.len(), &mut major, &mut minor) };
+    if status == SF_OK {
+        Ok((major, minor))
+    } else {
+        assert_eq!((major, minor), (0, 0), "outputs are cleared on an error");
+        Err(status)
+    }
+}
+
+fn from_kdbx3(database: *const SfDatabase) -> bool {
+    let mut from_kdbx3 = true;
+    // SAFETY: database is live; from_kdbx3 is a local.
+    assert_eq!(
+        unsafe { sf_database_from_kdbx3(database, &mut from_kdbx3) },
+        SF_OK
+    );
+    from_kdbx3
+}
+
+#[test]
+fn the_format_version_is_read_from_the_file_start() {
+    assert_eq!(version(FIXTURE).map(|(major, _)| major), Ok(4));
+    assert_eq!(version(&KDBX31[..12]), Ok((3, 1)));
+    assert_eq!(version(b"not a keepass file"), Err(SF_NOT_KDBX));
+    assert_eq!(version(&FIXTURE[..11]), Err(SF_NOT_KDBX));
+}
+
+#[test]
+fn a_kdbx3_file_is_saved_as_kdbx4_with_argon2id() {
+    let database = open(KDBX31, PASSWORD).unwrap();
+    assert!(from_kdbx3(database));
+    // SAFETY: database is live and used by this thread only.
+    assert_eq!(
+        unsafe { sf_database_set_kdf_level(database, 7) },
+        SF_INVALID_ARGUMENT
+    );
+    // SAFETY: as above.
+    assert_eq!(
+        unsafe { sf_database_set_kdf_level(database, SF_KDF_STANDARD) },
+        SF_OK
+    );
+    let mut file = SfBytes::EMPTY;
+    // SAFETY: database is live; file is a local.
+    assert_eq!(unsafe { sf_database_save(database, &mut file) }, SF_OK);
+    // SAFETY: file holds length bytes until freed below.
+    let saved = unsafe { std::slice::from_raw_parts(file.data, file.length) }.to_vec();
+    // SAFETY: each is freed once.
+    unsafe {
+        sf_bytes_free(file);
+        sf_database_free(database);
+    }
+    assert_eq!(version(&saved).map(|(major, _)| major), Ok(4));
+    let reopened = open(&saved, PASSWORD).unwrap();
+    assert!(!from_kdbx3(reopened));
+    // SAFETY: the handle is freed once.
+    unsafe { sf_database_free(reopened) };
 }
