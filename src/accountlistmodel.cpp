@@ -108,6 +108,8 @@ QVariant AccountListModel::data(const QModelIndex &index, int role) const
         return item.code;
     case RemainingRole:
         return item.remaining;
+    case HasPasswordRole:
+        return item.hasPassword;
     default:
         return QVariant();
     }
@@ -125,6 +127,7 @@ QHash<int, QByteArray> AccountListModel::roleNames() const
         {SteamRole, "steam"},
         {CodeRole, "code"},
         {RemainingRole, "remaining"},
+        {HasPasswordRole, "hasPassword"},
     };
 }
 
@@ -172,6 +175,9 @@ void AccountListModel::reload()
             item.digits = static_cast<int>(digits);
             item.period = static_cast<int>(period);
             item.steam = encoder == SF_ENCODER_STEAM;
+            bool hasPassword = false;
+            item.hasPassword = sf_account_list_has_password(list.get(), index, &hasPassword) == SF_OK
+                && hasPassword;
             item.remaining = 0;
             m_items.append(item);
         }

@@ -41,7 +41,8 @@ public:
         PeriodRole,
         SteamRole,
         CodeRole,
-        RemainingRole
+        RemainingRole,
+        HasPasswordRole
     };
 
     explicit AccountListModel(QObject *parent = nullptr);
@@ -70,6 +71,7 @@ private:
         int digits;
         int period;
         bool steam;
+        bool hasPassword;
         QString code;
         int remaining;
     };

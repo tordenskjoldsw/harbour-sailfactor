@@ -52,6 +52,33 @@ bool isKdbx3File(const QString &path)
         && major == 3;
 }
 
+struct PasswordCounts {
+    int withoutCode = 0;
+    int withCode = 0;
+};
+
+// Counts the accounts with a password; the sync entry is not an account.
+PasswordCounts passwordCountsOf(const SfDatabase *database)
+{
+    PasswordCounts counts;
+    SfAccountList *found = nullptr;
+    if (!database || sf_account_list(database, &found) != SF_OK)
+        return counts;
+    const CoreAccountList list(found);
+    for (size_t index = 0; index < sf_account_list_length(list.get()); ++index) {
+        bool hasPassword = false;
+        uint32_t kind = 0, digits = 0, period = 0, encoder = 0;
+        if (sf_account_list_has_password(list.get(), index, &hasPassword) != SF_OK || !hasPassword
+            || sf_account_list_kind(list.get(), index, &kind, &digits, &period, &encoder) != SF_OK)
+            continue;
+        if (kind == SF_KIND_NO_CODE)
+            ++counts.withoutCode;
+        else
+            ++counts.withCode;
+    }
+    return counts;
+}
+
 bool isKdfLevel(int level)
 {
     return level == Authenticator::KdfStandard || level == Authenticator::KdfHigh
@@ -96,6 +123,7 @@ Authenticator::~Authenticator()
     QCoreApplication::sendPostedEvents(this, QEvent::MetaCall);
     m_clipboard.clear();
     m_pending.reset();
+    m_mergeSource.reset();
     m_database.reset();
 }
 
@@ -365,6 +393,7 @@ void Authenticator::lock()
     if (!m_database)
         return;
     m_database.reset();
+    m_mergeSource.reset();
     m_fileDigest.clear();
     m_mergedPath.clear();
     setAddedOriginals(QStringList());
@@ -632,15 +661,15 @@ void Authenticator::onMergeOpened(int attempt, int status, qulonglong handle)
     setMerging(false);
     // A lock requested meanwhile wins over the merge.
     if (attempt == m_attempt && m_state == Unlocked && m_pendingLock == PendingLock::None) {
-        SfMergeChanges changes{0, 0, 0, 0, false};
-        if (status == SF_OK)
-            status = sf_database_merge(m_database.get(), source.get(), &changes);
-        const bool changed = changes.added || changes.modified || changes.moved
-            || changes.deleted || changes.metadata;
         if (m_mergeForSync) {
+            SfMergeChanges changes{0, 0, 0, 0, false};
+            if (status == SF_OK)
+                status = sf_database_merge(m_database.get(), source.get(), &changes);
             if (status != SF_OK) {
                 emit syncMergeFailed(errorFor(status));
             } else {
+                const bool changed = changes.added || changes.modified || changes.moved
+                    || changes.deleted || changes.metadata;
                 if (changed)
                     commitChange();
                 emit syncMergeFinished(changed);
@@ -650,15 +679,55 @@ void Authenticator::onMergeOpened(int attempt, int status, qulonglong handle)
         } else if (status != SF_OK) {
             emit mergeFailed(errorFor(status));
         } else {
-            m_mergedPath = m_mergePath;
-            if (changed)
-                commitChange();
-            emit mergeFinished(static_cast<int>(changes.added), static_cast<int>(changes.modified),
-                               static_cast<int>(changes.moved), static_cast<int>(changes.deleted));
+            // Passwords without a code would land next to the second
+            // factor; the user decides first (PLAN.md section 14).
+            const PasswordCounts counts = passwordCountsOf(source.get());
+            if (counts.withoutCode > 0) {
+                m_mergeSource = std::move(source);
+                emit mergeNeedsConfirmation(counts.withoutCode, counts.withCode);
+            } else {
+                mergeChosenCopy(std::move(source));
+            }
         }
     }
     source.reset();
     resumePendingLock();
+}
+
+void Authenticator::mergeChosenCopy(CoreDatabase source)
+{
+    SfMergeChanges changes{0, 0, 0, 0, false};
+    const int status = sf_database_merge(m_database.get(), source.get(), &changes);
+    if (status != SF_OK) {
+        emit mergeFailed(errorFor(status));
+        return;
+    }
+    m_mergedPath = m_mergePath;
+    if (changes.added || changes.modified || changes.moved || changes.deleted || changes.metadata)
+        commitChange();
+    emit mergeFinished(static_cast<int>(changes.added), static_cast<int>(changes.modified),
+                       static_cast<int>(changes.moved), static_cast<int>(changes.deleted));
+}
+
+void Authenticator::confirmMerge()
+{
+    if (!m_mergeSource || busy() || !database())
+        return;
+    mergeChosenCopy(std::move(m_mergeSource));
+}
+
+void Authenticator::cancelMerge()
+{
+    m_mergeSource.reset();
+}
+
+QVariantMap Authenticator::passwordCounts()
+{
+    const PasswordCounts counts = passwordCountsOf(database());
+    QVariantMap result;
+    result.insert(QStringLiteral("withoutCode"), counts.withoutCode);
+    result.insert(QStringLiteral("withCode"), counts.withCode);
+    return result;
 }
 
 bool Authenticator::removeMergedFile()

@@ -178,6 +178,13 @@ public:
                                    const QString &keyFilePath, bool useStoredKeyFile);
     // Deletes the file the last merge read, and nothing else.
     Q_INVOKABLE bool removeMergedFile();
+    // A copy to merge that holds passwords without a one-time code waits
+    // for one of these after mergeNeedsConfirmation; a lock drops it.
+    Q_INVOKABLE void confirmMerge();
+    Q_INVOKABLE void cancelMerge();
+    // The open file's accounts with a password, as "withoutCode" (warned
+    // about) and "withCode" (the usual KeePassXC login entry, only counted).
+    Q_INVOKABLE QVariantMap passwordCounts();
 
     // For the sync: merges a downloaded copy, opened with the held
     // credentials, and saves; reports syncMergeFinished or syncMergeFailed.
@@ -200,6 +207,9 @@ signals:
     void mergingChanged();
     void mergeFinished(int added, int modified, int moved, int deleted);
     void mergeNeedsPassword();
+    // The copy holds withoutCode passwords without a one-time code and
+    // withCode passwords next to one; confirmMerge or cancelMerge decides.
+    void mergeNeedsConfirmation(int withoutCode, int withCode);
     void mergeFailed(int error);
     void syncMergeFinished(bool changed);
     void syncMergeFailed(int error);
@@ -253,6 +263,8 @@ private:
     void setSaving(bool saving);
     void setMerging(bool merging);
     void startMerge(const QString &path, MergeTask *task);
+    // Merges the copy the user chose into the file and saves.
+    void mergeChosenCopy(CoreDatabase source);
     // Marks an in-memory change and starts its save.
     void commitChange();
     void setDirty(bool dirty);
@@ -274,6 +286,8 @@ private:
     bool m_mergeForSync = false;
     // The file the last merge read, until it is deleted or the app locks.
     QString m_mergedPath;
+    // A copy waiting for the user to confirm its passwords.
+    CoreDatabase m_mergeSource;
     bool m_dirty = false;
     bool m_hasFile = false;
     // The source files of the add that runs.
