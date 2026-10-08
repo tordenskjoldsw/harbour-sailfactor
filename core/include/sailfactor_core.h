@@ -82,8 +82,11 @@ void sf_bytes_free(SfBytes bytes);
 
 /*
  * The file. Open and create run the key derivation: call them, and save,
- * off the UI thread. A handle is used by one thread at a time;
- * sf_database_free locks the file and wipes everything decrypted.
+ * off the UI thread. Functions that take a const handle may run on several
+ * threads at once, so the UI can read while a save serializes; a function
+ * that takes a mutable handle, and sf_database_free, need the handle to
+ * themselves. sf_database_free locks the file and wipes everything
+ * decrypted.
  */
 int32_t sf_database_open(const uint8_t *data, size_t data_length, const uint8_t *password,
                          size_t password_length, bool has_password, const uint8_t *key_file,
