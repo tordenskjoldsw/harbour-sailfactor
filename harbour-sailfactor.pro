@@ -1,7 +1,7 @@
 TARGET = harbour-sailfactor
 
 CONFIG += sailfishapp
-QT += multimedia
+QT += multimedia network
 
 HEADERS += \
     src/accountlistmodel.h \
@@ -13,7 +13,9 @@ HEADERS += \
     src/coretasks.h \
     src/databasefile.h \
     src/databases.h \
-    src/framescanner.h
+    src/framescanner.h \
+    src/nextcloud.h \
+    src/sync.h
 
 SOURCES += \
     src/accountlistmodel.cpp \
@@ -24,7 +26,9 @@ SOURCES += \
     src/databasefile.cpp \
     src/databases.cpp \
     src/framescanner.cpp \
-    src/main.cpp
+    src/main.cpp \
+    src/nextcloud.cpp \
+    src/sync.cpp
 
 INCLUDEPATH += core/include
 

@@ -16,6 +16,7 @@
 #include "databases.h"
 #include "framescanner.h"
 #include "sailfactor_core.h"
+#include "sync.h"
 
 namespace {
 
@@ -45,9 +46,12 @@ int main(int argc, char *argv[])
                                               QStringLiteral("Use the authenticator context property"));
     qmlRegisterUncreatableType<Databases>("harbour.sailfactor", 1, 0, "Databases",
                                           QStringLiteral("Use the databases context property"));
+    qmlRegisterUncreatableType<Sync>("harbour.sailfactor", 1, 0, "Sync",
+                                     QStringLiteral("Use the sync context property"));
 
     Databases databases;
     Authenticator authenticator;
+    Sync sync(&authenticator);
     QScopedPointer<QQuickView> view(SailfishApp::createView());
     // Development builds carry SemVer build metadata after "+" (branch, time
     // and commit); the About page shows it apart from the release number.
@@ -56,6 +60,7 @@ int main(int argc, char *argv[])
     QQmlContext *context = view->rootContext();
     context->setContextProperty(QStringLiteral("authenticator"), &authenticator);
     context->setContextProperty(QStringLiteral("databases"), &databases);
+    context->setContextProperty(QStringLiteral("sync"), &sync);
     context->setContextProperty(QStringLiteral("appVersion"),
                                 version.section(QLatin1Char('+'), 0, 0));
     context->setContextProperty(QStringLiteral("appBuild"), version.section(QLatin1Char('+'), 1));

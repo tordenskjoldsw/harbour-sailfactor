@@ -1,0 +1,786 @@
+#include "sync.h"
+
+#include <QCryptographicHash>
+#include <QDesktopServices>
+#include <QNetworkConfigurationManager>
+#include <QSettings>
+#include <QStandardPaths>
+#include <QStringList>
+#include <QTimer>
+
+#include "corebridge.h"
+#include "databasefile.h"
+#include "databases.h"
+#include "authenticator.h"
+
+namespace {
+
+// Saves come in bursts while editing; one sync covers them.
+const int SaveDelayMs = 2000;
+const int MaxAttempts = 3;
+
+QString settingsPath()
+{
+    return QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation)
+        + QStringLiteral("/settings.ini");
+}
+
+// Only https: the app password must never travel in the clear.
+QUrl serverUrl(const QString &text)
+{
+    QString trimmed = text.trimmed();
+    if (!trimmed.contains(QStringLiteral("://")))
+        trimmed.prepend(QStringLiteral("https://"));
+    const QUrl url(trimmed, QUrl::StrictMode);
+    if (!url.isValid() || url.scheme() != QLatin1String("https") || url.host().isEmpty()
+        || !url.userInfo().isEmpty() || url.hasQuery() || url.hasFragment())
+        return QUrl();
+    return url;
+}
+
+// Identifies a configuration without its password: each field is
+// length-prefixed, so different fields cannot run together.
+QByteArray configurationDigest(const QByteArray &server, const QByteArray &loginName,
+                               const QByteArray &path, const QByteArray &pin)
+{
+    QCryptographicHash hash(QCryptographicHash::Sha256);
+    for (const QByteArray &field : {server, loginName, path, pin}) {
+        const quint32 length = static_cast<quint32>(field.size());
+        hash.addData(reinterpret_cast<const char *>(&length), sizeof(length));
+        hash.addData(field);
+    }
+    return hash.result();
+}
+
+QString colonHex(const QByteArray &hex)
+{
+    QStringList pairs;
+    const QByteArray upper = hex.toUpper();
+    for (int index = 0; index + 1 < upper.size(); index += 2)
+        pairs.append(QString::fromLatin1(upper.mid(index, 2)));
+    return pairs.join(QLatin1Char(':'));
+}
+
+QString remotePath(const QString &text)
+{
+    const QString trimmed = text.trimmed();
+    return trimmed.startsWith(QLatin1Char('/')) ? trimmed : QLatin1Char('/') + trimmed;
+}
+
+} // namespace
+
+Sync::Sync(Authenticator *authenticator, QObject *parent)
+    : QObject(parent)
+    , m_authenticator(authenticator)
+    , m_client(new NextcloudClient(this))
+    , m_delay(new QTimer(this))
+    , m_connectivity(new QNetworkConfigurationManager(this))
+{
+    // Only a trigger: a sync that failed for want of a connection runs again
+    // once one is back. Syncs never wait for this report, which may be
+    // wrong inside the sandbox.
+    connect(m_connectivity, &QNetworkConfigurationManager::onlineStateChanged, this,
+            [this](bool online) {
+                if (online && m_state == Failed && m_problem == Offline)
+                    scheduleSync();
+            });
+    m_delay->setSingleShot(true);
+    m_delay->setInterval(SaveDelayMs);
+    connect(m_delay, &QTimer::timeout, this, &Sync::sync);
+    connect(authenticator, &Authenticator::stateChanged, this, &Sync::onAuthenticatorStateChanged);
+    connect(authenticator, &Authenticator::saved, this, &Sync::onSaved);
+    connect(authenticator, &Authenticator::contentChanged, this, &Sync::updateConfigured);
+    connect(authenticator, &Authenticator::syncMergeFinished, this, &Sync::onMerged);
+    connect(authenticator, &Authenticator::syncMergeFailed, this, [this](int error) {
+        if (!m_running)
+            return;
+        switch (error) {
+        case Authenticator::WrongPassword:
+        case Authenticator::InvalidKeyFile:
+            finish(OtherCredentials);
+            break;
+        case Authenticator::NotKdbx:
+        case Authenticator::Corrupted:
+        case Authenticator::UnsupportedFormat:
+            finish(NotDatabase);
+            break;
+        default:
+            finish(ServerProblem);
+        }
+    });
+    connect(authenticator, &Authenticator::saveFailed, this, [this]() {
+        if (m_waitingForSave)
+            finish(ServerProblem);
+    });
+    // A download that arrived during a save is merged once the file is
+    // free again.
+    auto resume = [this]() {
+        if (!m_pendingData.isEmpty() && !m_authenticator->busy()) {
+            const QByteArray data = m_pendingData;
+            m_pendingData.clear();
+            merge(data, m_pendingEtag);
+        }
+    };
+    connect(authenticator, &Authenticator::savingChanged, this, resume);
+    connect(authenticator, &Authenticator::mergingChanged, this, resume);
+    // The app keeps one file under one name. What the last sync knew about
+    // it (ETag, digest, confirmation) must not carry over to a file added
+    // after it was deleted: an old ETag and a different local digest would
+    // upload the new file over the remote one without a merge.
+    connect(authenticator, &Authenticator::hasFileChanged, this, [this]() {
+        if (m_authenticator->hasFile())
+            return;
+        QSettings settings(settingsPath(), QSettings::IniFormat);
+        settings.remove(settingsGroup());
+    });
+}
+
+bool Sync::configured() const
+{
+    return m_configured;
+}
+
+Sync::State Sync::state() const
+{
+    return m_state;
+}
+
+Sync::Problem Sync::problem() const
+{
+    return m_problem;
+}
+
+QDateTime Sync::lastSynced() const
+{
+    return m_lastSynced;
+}
+
+Sync::SetupState Sync::setupState() const
+{
+    return m_setupState;
+}
+
+Sync::Problem Sync::setupProblem() const
+{
+    return m_setupProblem;
+}
+
+QString Sync::certificateFingerprint() const
+{
+    return colonHex(m_fingerprint);
+}
+
+QString Sync::storedCertificate() const
+{
+    return colonHex(m_authenticator->syncSetting(SF_SYNC_CERTIFICATE));
+}
+
+void Sync::confirmConfiguration()
+{
+    if (!loadAccount())
+        return;
+    confirm(m_configuration);
+    sync();
+}
+
+bool Sync::takeConfirmationRequest()
+{
+    if (m_problem != Unconfirmed || m_confirmationRequested)
+        return false;
+    m_confirmationRequested = true;
+    return true;
+}
+
+void Sync::confirm(const QByteArray &digest)
+{
+    QSettings settings(settingsPath(), QSettings::IniFormat);
+    settings.beginGroup(settingsGroup());
+    settings.setValue(QStringLiteral("confirmed"), digest.toHex());
+    m_confirmationRequested = false;
+}
+
+bool Sync::confirmed() const
+{
+    QSettings settings(settingsPath(), QSettings::IniFormat);
+    settings.beginGroup(settingsGroup());
+    return !m_configuration.isEmpty()
+        && QByteArray::fromHex(settings.value(QStringLiteral("confirmed")).toByteArray())
+               == m_configuration;
+}
+
+bool Sync::certificateReplaced() const
+{
+    return m_certificateReplaced;
+}
+
+QString Sync::defaultPath() const
+{
+    return QStringLiteral("/SailFactor/") + Databases::DefaultName + QStringLiteral(".kdbx");
+}
+
+QString Sync::storedServer() const
+{
+    return QString::fromUtf8(m_authenticator->syncSetting(SF_SYNC_SERVER));
+}
+
+QString Sync::storedPath() const
+{
+    return QString::fromUtf8(m_authenticator->syncSetting(SF_SYNC_PATH));
+}
+
+QString Sync::storedLoginName() const
+{
+    return QString::fromUtf8(m_authenticator->syncSetting(SF_SYNC_USER));
+}
+
+void Sync::changePath(const QString &path)
+{
+    const QString remote = remotePath(path);
+    if (!m_configured || remote.length() < 2 || remote == storedPath())
+        return;
+    abortSync();
+    QByteArray password = m_authenticator->syncSetting(SF_SYNC_APP_PASSWORD);
+    // Saving the entry starts the next sync.
+    const QByteArray pin = m_authenticator->syncSetting(SF_SYNC_CERTIFICATE);
+    const bool stored = m_authenticator->storeSyncSettings(storedServer(), storedLoginName(), password,
+                                                   remote, pin);
+    secureWipe(password);
+    if (stored)
+        confirm(configurationDigest(m_authenticator->syncSetting(SF_SYNC_SERVER),
+                                    m_authenticator->syncSetting(SF_SYNC_USER), remote.toUtf8(), pin));
+    setSetupState(stored ? SetupDone : SetupFailed, stored ? NoProblem : ServerProblem);
+}
+
+void Sync::onAuthenticatorStateChanged()
+{
+    if (m_authenticator->state() == Authenticator::Unlocked) {
+        updateConfigured();
+        sync();
+    } else {
+        stop();
+    }
+}
+
+void Sync::onSaved()
+{
+    updateConfigured();
+    if (m_waitingForSave) {
+        m_waitingForSave = false;
+        uploadIfNeeded();
+        return;
+    }
+    if (m_running)
+        m_again = true;
+    else if (m_configured)
+        scheduleSync();
+}
+
+void Sync::scheduleSync()
+{
+    m_delay->start();
+    if (m_state != Syncing || m_problem != NoProblem) {
+        m_state = Syncing;
+        m_problem = NoProblem;
+        emit stateChanged();
+    }
+}
+
+// Locking ends everything: requests, the login flow and every credential
+// held here.
+void Sync::stop()
+{
+    ++m_generation;
+    m_delay->stop();
+    m_client->abortAll();
+    m_client->clearAccount();
+    m_running = false;
+    m_again = false;
+    m_waitingForSave = false;
+    m_pendingData.clear();
+    m_userId.clear();
+    m_remote.clear();
+    m_configuration.clear();
+    m_confirmationRequested = false;
+    wipeSetup();
+    setSetupState(SetupIdle);
+    updateConfigured();
+    if (m_state != Off || m_problem != NoProblem) {
+        m_state = Off;
+        m_problem = NoProblem;
+        emit stateChanged();
+    }
+}
+
+void Sync::updateConfigured()
+{
+    const bool configured = m_authenticator->state() == Authenticator::Unlocked
+        && !m_authenticator->syncSetting(SF_SYNC_SERVER).isEmpty();
+    if (m_configured == configured)
+        return;
+    m_configured = configured;
+    emit configuredChanged();
+}
+
+QString Sync::settingsGroup() const
+{
+    return QStringLiteral("sync");
+}
+
+bool Sync::loadAccount()
+{
+    QByteArray password = m_authenticator->syncSetting(SF_SYNC_APP_PASSWORD);
+    const QByteArray serverText = m_authenticator->syncSetting(SF_SYNC_SERVER);
+    const QByteArray loginText = m_authenticator->syncSetting(SF_SYNC_USER);
+    const QByteArray pathText = m_authenticator->syncSetting(SF_SYNC_PATH);
+    NextcloudClient::Account account;
+    account.server = QUrl(QString::fromUtf8(serverText));
+    account.loginName = QString::fromUtf8(loginText);
+    account.appPassword = password;
+    account.pinnedCertificate = m_authenticator->syncSetting(SF_SYNC_CERTIFICATE);
+    secureWipe(password);
+    m_configuration = configurationDigest(serverText, loginText, pathText,
+                                          account.pinnedCertificate);
+    const QString path = QString::fromUtf8(pathText);
+    if (!serverUrl(account.server.toString()).isValid() || account.loginName.isEmpty()
+        || account.appPassword.isEmpty() || path.isEmpty()) {
+        secureWipe(account.appPassword);
+        return false;
+    }
+
+    const QString remote = account.server.toString() + QLatin1Char('\n') + account.loginName
+        + QLatin1Char('\n') + path;
+    if (remote != m_remote) {
+        // Another server, account or file: what was synced before says
+        // nothing about it.
+        m_remote = remote;
+        m_userId.clear();
+        QSettings settings(settingsPath(), QSettings::IniFormat);
+        settings.beginGroup(settingsGroup());
+        const bool same = settings.value(QStringLiteral("remote")).toString() == remote;
+        m_etag = same ? settings.value(QStringLiteral("etag")).toByteArray() : QByteArray();
+        m_digest = same ? QByteArray::fromHex(settings.value(QStringLiteral("digest")).toByteArray())
+                        : QByteArray();
+        m_lastSynced = same ? settings.value(QStringLiteral("synced")).toDateTime() : QDateTime();
+    }
+    m_path = path;
+    m_pin = account.pinnedCertificate;
+    m_client->setAccount(account);
+    secureWipe(account.appPassword);
+    return true;
+}
+
+void Sync::remember()
+{
+    QSettings settings(settingsPath(), QSettings::IniFormat);
+    settings.beginGroup(settingsGroup());
+    settings.setValue(QStringLiteral("remote"), m_remote);
+    settings.setValue(QStringLiteral("etag"), m_etag);
+    settings.setValue(QStringLiteral("digest"), m_digest.toHex());
+    settings.setValue(QStringLiteral("synced"), m_lastSynced);
+}
+
+void Sync::sync()
+{
+    if (m_authenticator->state() != Authenticator::Unlocked || m_setupState == WaitingForBrowser
+        || m_setupState == Checking)
+        return;
+    m_delay->stop();
+    if (m_running) {
+        m_again = true;
+        return;
+    }
+    if (!loadAccount()) {
+        if (m_state != Off) {
+            m_state = Off;
+            m_problem = NoProblem;
+            emit stateChanged();
+        }
+        return;
+    }
+    // Not a single request for a configuration this device has not
+    // confirmed: it may have arrived inside a merged file.
+    if (!confirmed()) {
+        m_client->clearAccount();
+        if (m_state != Failed || m_problem != Unconfirmed) {
+            m_state = Failed;
+            m_problem = Unconfirmed;
+            emit stateChanged();
+        }
+        return;
+    }
+    m_running = true;
+    m_attempts = 0;
+    m_foldersCreated = false;
+    m_mergedEtag.clear();
+    m_digestBeforeMerge.clear();
+    m_state = Syncing;
+    m_problem = NoProblem;
+    emit stateChanged();
+    withUserId([this]() { download(); });
+}
+
+void Sync::withUserId(const std::function<void()> &next)
+{
+    if (!m_userId.isEmpty()) {
+        next();
+        return;
+    }
+    const int generation = m_generation;
+    m_client->userId([this, generation, next](NextcloudClient::Result result, const QString &id) {
+        if (generation != m_generation)
+            return;
+        if (result != NextcloudClient::Ok) {
+            finish(problemOf(result, m_pin));
+            return;
+        }
+        m_userId = id;
+        next();
+    });
+}
+
+void Sync::download()
+{
+    const int generation = m_generation;
+    m_client->download(
+        m_userId, m_path, m_etag,
+        [this, generation](NextcloudClient::Result result, const QByteArray &data,
+                           const QByteArray &etag) {
+            if (generation != m_generation)
+                return;
+            switch (result) {
+            case NextcloudClient::NotModified:
+                m_mergedEtag = m_etag;
+                uploadIfNeeded();
+                break;
+            case NextcloudClient::NotFound:
+                // Not on the server yet: this copy creates it.
+                m_mergedEtag.clear();
+                m_digest.clear();
+                upload();
+                break;
+            case NextcloudClient::Ok:
+                merge(data, etag);
+                break;
+            default:
+                finish(problemOf(result, m_pin));
+            }
+        });
+}
+
+void Sync::merge(const QByteArray &data, const QByteArray &etag)
+{
+    m_pendingEtag = etag;
+    m_digestBeforeMerge = m_authenticator->fileDigest();
+    if (!m_authenticator->mergeData(data))
+        m_pendingData = data;
+}
+
+void Sync::onMerged(bool changed)
+{
+    if (!m_running)
+        return;
+    m_mergedEtag = m_pendingEtag;
+    if (changed)
+        m_waitingForSave = true;
+    else
+        uploadIfNeeded();
+}
+
+void Sync::uploadIfNeeded()
+{
+    const QByteArray local = m_authenticator->fileDigest();
+    // Unchanged here since the last sync: whatever the server had is merged
+    // now, and the server has nothing to learn from this copy.
+    const QByteArray before = m_digestBeforeMerge.isEmpty() ? local : m_digestBeforeMerge;
+    if (!m_digest.isEmpty() && before == m_digest) {
+        m_etag = m_mergedEtag;
+        m_digest = local;
+        finish(NoProblem);
+        return;
+    }
+    upload();
+}
+
+void Sync::upload()
+{
+    QByteArray data;
+    if (readBoundedFile(Databases::databasePath(Databases::DefaultName), MaxDatabaseBytes, data)
+        != SF_OK) {
+        finish(ServerProblem);
+        return;
+    }
+    const QByteArray digest = fileDigest(data);
+    const int generation = m_generation;
+    m_client->upload(m_userId, m_path, data, m_mergedEtag,
+                     [this, generation, digest](NextcloudClient::Result result,
+                                                const QByteArray &etag) {
+                         if (generation != m_generation)
+                             return;
+                         if (result == NextcloudClient::Ok) {
+                             m_etag = etag;
+                             m_digest = digest;
+                             finish(NoProblem);
+                         } else if ((result == NextcloudClient::FolderMissing
+                                     || result == NextcloudClient::NotFound)
+                                    && !m_foldersCreated) {
+                             // Nextcloud answers 404 for a missing folder,
+                             // the WebDAV library alone 409.
+                             m_foldersCreated = true;
+                             QStringList folders;
+                             const QStringList parts = m_path.split(QLatin1Char('/'),
+                                                                    QString::SkipEmptyParts);
+                             for (int count = 1; count < parts.size(); ++count)
+                                 folders.append(QLatin1Char('/')
+                                                + QStringList(parts.mid(0, count))
+                                                      .join(QLatin1Char('/')));
+                             createFolders(folders);
+                         } else if (result == NextcloudClient::PreconditionFailed
+                                    && ++m_attempts < MaxAttempts) {
+                             // Changed on the server meanwhile: merge that first.
+                             m_etag.clear();
+                             m_digestBeforeMerge.clear();
+                             download();
+                         } else {
+                             finish(result == NextcloudClient::NotFound
+                                        ? FolderMissing
+                                        : problemOf(result, m_pin));
+                         }
+                     });
+}
+
+// Creates the missing folders of the path from the top, then uploads again.
+void Sync::createFolders(const QStringList &folders)
+{
+    if (folders.isEmpty()) {
+        upload();
+        return;
+    }
+    const int generation = m_generation;
+    m_client->createFolder(m_userId, folders.first(),
+                           [this, generation, folders](NextcloudClient::Result result) {
+                               if (generation != m_generation)
+                                   return;
+                               if (result != NextcloudClient::Ok) {
+                                   finish(problemOf(result, m_pin));
+                                   return;
+                               }
+                               createFolders(folders.mid(1));
+                           });
+}
+
+void Sync::finish(Problem problem)
+{
+    m_running = false;
+    m_waitingForSave = false;
+    m_pendingData.clear();
+    if (problem == NoProblem) {
+        m_lastSynced = QDateTime::currentDateTimeUtc();
+        remember();
+    }
+    m_state = problem == NoProblem ? Idle : Failed;
+    m_problem = problem;
+    emit stateChanged();
+    if (m_again) {
+        m_again = false;
+        scheduleSync();
+    }
+}
+
+Sync::Problem Sync::problemOf(NextcloudClient::Result result, const QByteArray &pin)
+{
+    switch (result) {
+    case NextcloudClient::CertificateUntrusted:
+        m_fingerprint = m_client->lastFingerprint();
+        m_certificateReplaced = !pin.isEmpty() && pin != m_fingerprint;
+        emit certificateChanged();
+        return CertificateUnknown;
+    case NextcloudClient::NetworkError:
+        return Offline;
+    case NextcloudClient::Unauthorized:
+        return LoginFailed;
+    case NextcloudClient::FolderMissing:
+        return FolderMissing;
+    default:
+        return ServerProblem;
+    }
+}
+
+void Sync::startLogin(const QString &server, const QString &path)
+{
+    if (m_authenticator->state() != Authenticator::Unlocked)
+        return;
+    const QUrl url = serverUrl(server);
+    if (!url.isValid()) {
+        setSetupState(SetupFailed, InvalidServer);
+        return;
+    }
+    // A certificate confirmed for this server stays pinned for the retry.
+    const QByteArray pin = m_setup.server.host() == url.host() ? m_setup.pin : QByteArray();
+    wipeSetup();
+    abortSync();
+    m_setup.server = url;
+    m_setup.path = remotePath(path);
+    m_setup.pin = pin;
+    std::function<void()> begin = [this]() {
+        NextcloudClient::Account account;
+        account.server = m_setup.server;
+        account.pinnedCertificate = m_setup.pin;
+        m_client->setAccount(account);
+        setSetupState(Checking);
+        const int generation = m_generation;
+        m_client->startLogin(
+            [this, generation](NextcloudClient::Result result, const QUrl &loginUrl) {
+                if (generation != m_generation)
+                    return;
+                if (result != NextcloudClient::Ok) {
+                    failSetup(problemOf(result, m_setup.pin), [this]() {
+                        startLogin(m_setup.server.toString(), m_setup.path);
+                    });
+                    return;
+                }
+                QDesktopServices::openUrl(loginUrl);
+                setSetupState(WaitingForBrowser);
+            },
+            [this, generation](NextcloudClient::Result result, const QString &loginName,
+                               const QByteArray &appPassword) {
+                if (generation != m_generation)
+                    return;
+                if (result != NextcloudClient::Ok) {
+                    failSetup(result == NextcloudClient::NotFound ? LoginExpired
+                                                                  : problemOf(result, m_setup.pin));
+                    return;
+                }
+                m_setup.loginName = loginName;
+                m_setup.appPassword = appPassword;
+                checkSetup();
+            });
+    };
+    begin();
+}
+
+void Sync::setUpManually(const QString &server, const QString &path, const QString &loginName,
+                         const QString &appPassword)
+{
+    if (m_authenticator->state() != Authenticator::Unlocked)
+        return;
+    const QUrl url = serverUrl(server);
+    if (!url.isValid()) {
+        setSetupState(SetupFailed, InvalidServer);
+        return;
+    }
+    const QByteArray pin = m_setup.server.host() == url.host() ? m_setup.pin : QByteArray();
+    wipeSetup();
+    abortSync();
+    m_setup.server = url;
+    m_setup.path = remotePath(path);
+    m_setup.loginName = loginName.trimmed();
+    m_setup.appPassword = appPassword.toUtf8();
+    m_setup.pin = pin;
+    checkSetup();
+}
+
+// Checks the credentials and finds the user id, then stores the settings
+// in the database; the save that follows starts the first sync.
+void Sync::checkSetup()
+{
+    NextcloudClient::Account account;
+    account.server = m_setup.server;
+    account.loginName = m_setup.loginName;
+    account.appPassword = m_setup.appPassword;
+    account.pinnedCertificate = m_setup.pin;
+    m_client->setAccount(account);
+    secureWipe(account.appPassword);
+    setSetupState(Checking);
+    const int generation = m_generation;
+    m_client->userId([this, generation](NextcloudClient::Result result, const QString &id) {
+        if (generation != m_generation)
+            return;
+        if (result != NextcloudClient::Ok) {
+            failSetup(problemOf(result, m_setup.pin), [this]() { checkSetup(); });
+            return;
+        }
+        const QString server = m_setup.server.toString();
+        if (!m_authenticator->storeSyncSettings(server, m_setup.loginName, m_setup.appPassword,
+                                        m_setup.path, m_setup.pin)) {
+            failSetup(ServerProblem);
+            return;
+        }
+        confirm(configurationDigest(server.toUtf8(), m_setup.loginName.toUtf8(),
+                                    m_setup.path.toUtf8(), m_setup.pin));
+        Q_UNUSED(id)
+        m_remote.clear();
+        wipeSetup();
+        setSetupState(SetupDone);
+        updateConfigured();
+    });
+}
+
+void Sync::failSetup(Problem problem, const std::function<void()> &retry)
+{
+    m_retry = problem == CertificateUnknown ? retry : nullptr;
+    setSetupState(SetupFailed, problem);
+}
+
+void Sync::cancelSetup()
+{
+    if (m_setupState == WaitingForBrowser || m_setupState == Checking)
+        abortSync();
+    wipeSetup();
+    setSetupState(SetupIdle);
+}
+
+// The setup uses the client with another account; a running sync ends.
+void Sync::abortSync()
+{
+    ++m_generation;
+    m_delay->stop();
+    m_client->abortAll();
+    m_waitingForSave = false;
+    m_pendingData.clear();
+    if (m_running) {
+        m_running = false;
+        m_state = Idle;
+        emit stateChanged();
+    }
+}
+
+void Sync::trustCertificate()
+{
+    if (m_fingerprint.isEmpty())
+        return;
+    if (m_setupState == SetupFailed && m_setupProblem == CertificateUnknown && m_retry) {
+        m_setup.pin = m_fingerprint;
+        const std::function<void()> retry = m_retry;
+        m_retry = nullptr;
+        retry();
+        return;
+    }
+    if (m_state != Failed || m_problem != CertificateUnknown)
+        return;
+    QByteArray password = m_authenticator->syncSetting(SF_SYNC_APP_PASSWORD);
+    const QByteArray server = m_authenticator->syncSetting(SF_SYNC_SERVER);
+    const QByteArray loginName = m_authenticator->syncSetting(SF_SYNC_USER);
+    const QByteArray path = m_authenticator->syncSetting(SF_SYNC_PATH);
+    // The new pin is saved and confirmed, and the save starts the next sync.
+    if (m_authenticator->storeSyncSettings(QString::fromUtf8(server), QString::fromUtf8(loginName),
+                                   password, QString::fromUtf8(path), m_fingerprint))
+        confirm(configurationDigest(server, loginName, path, m_fingerprint));
+    secureWipe(password);
+}
+
+void Sync::setSetupState(SetupState state, Problem problem)
+{
+    if (m_setupState == state && m_setupProblem == problem)
+        return;
+    m_setupState = state;
+    m_setupProblem = problem;
+    emit setupChanged();
+}
+
+void Sync::wipeSetup()
+{
+    m_client->cancelLogin();
+    secureWipe(m_setup.appPassword);
+    m_setup = Setup();
+    m_retry = nullptr;
+}
