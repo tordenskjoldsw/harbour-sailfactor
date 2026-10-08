@@ -48,12 +48,13 @@ Page {
         }
     }
 
+    // The Sailfish camera plugin delivers frames upright for the portrait
+    // page; autoOrientation would turn them a second time.
     VideoOutput {
         anchors.fill: parent
         source: camera
         filters: [ scanner ]
         fillMode: VideoOutput.PreserveAspectCrop
-        autoOrientation: true
     }
 
     Rectangle {
