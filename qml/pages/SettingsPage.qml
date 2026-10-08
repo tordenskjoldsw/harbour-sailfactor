@@ -53,6 +53,13 @@ Page {
         })
     }
 
+    function emptyRecycleBin() {
+        remorse.execute(qsTr("Emptying the recycle bin"), function() {
+            if (!authenticator.emptyRecycleBin())
+                Notices.show(qsTr("The recycle bin could not be emptied"), Notice.Short)
+        })
+    }
+
     function deleteFile() {
         var dialog = pageStack.push(Qt.resolvedUrl("DeleteFileDialog.qml"))
         dialog.accepted.connect(function() { page.deleteRequested = true })
@@ -76,6 +83,10 @@ Page {
 
     SyncText {
         id: syncText
+    }
+
+    RemorsePopup {
+        id: remorse
     }
 
     Component {
@@ -151,6 +162,26 @@ Page {
                     highlighted: mergeItem.highlighted
                     title: qsTr("Merge with file")
                     description: qsTr("Bring in the changes of another copy")
+                }
+            }
+
+            BackgroundItem {
+                id: binItem
+
+                height: Theme.itemSizeMedium
+                enabled: !authenticator.busy && authenticator.recycleBinItems > 0
+                onClicked: page.emptyRecycleBin()
+
+                TwoLineLabel {
+                    anchors.fill: parent
+                    highlighted: binItem.highlighted
+                    title: qsTr("Empty recycle bin")
+                    // No translations exist yet, so the count goes after a
+                    // label instead of into a %n plural.
+                    description: authenticator.recycleBinItems > 0
+                                 ? qsTr("Deleted accounts keep their secrets there. Items: %1")
+                                   .arg(authenticator.recycleBinItems)
+                                 : qsTr("Empty")
                 }
             }
 

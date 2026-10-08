@@ -43,20 +43,20 @@ Page {
         }
     }
 
-    function summary(added, modified, moved, deleted) {
-        if (added + modified + moved + deleted === 0)
+    // Counted in accounts as the list shows them; groups and the recycle
+    // bin are not accounts.
+    function summary(newAccounts, removedAccounts, changed) {
+        if (!changed)
             return qsTr("SailFactor already has every change from this file.")
+        if (newAccounts === 0 && removedAccounts === 0)
+            return qsTr("Changes merged. No account was added or removed.")
         // No translations exist yet, so counts go after a label instead of
         // into %n plurals.
         var lines = []
-        if (added > 0)
-            lines.push(qsTr("Added: %1").arg(added))
-        if (modified > 0)
-            lines.push(qsTr("Changed: %1").arg(modified))
-        if (moved > 0)
-            lines.push(qsTr("Moved: %1").arg(moved))
-        if (deleted > 0)
-            lines.push(qsTr("Deleted: %1").arg(deleted))
+        if (newAccounts > 0)
+            lines.push(qsTr("New accounts: %1").arg(newAccounts))
+        if (removedAccounts > 0)
+            lines.push(qsTr("Accounts removed: %1").arg(removedAccounts))
         return lines.join("\n")
     }
 
@@ -105,7 +105,7 @@ Page {
         onMergeFinished: {
             page.confirming = false
             page.finished = true
-            page.resultText = page.summary(added, modified, moved, deleted)
+            page.resultText = page.summary(newAccounts, removedAccounts, changed)
         }
         onMergeFailed: page.errorText = page.failureText(error)
     }
