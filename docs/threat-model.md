@@ -246,6 +246,9 @@ Protected:
 - The setup page asks for a Nextcloud login that does not need a code from
   this file, and recommends an app password: after a lost phone, the copy
   on Nextcloud and KeePassXC on a computer are the way back to the codes.
+- The sync entry, "Nextcloud sync (SailFactor)", carries its own marker, so
+  a SailVault sync entry in a file merged or added here is never taken for
+  SailFactor's configuration, and the other way round.
 
 Limits:
 
@@ -263,9 +266,6 @@ Limits:
 - Deletions from the other copy are applied when the item did not change
   afterwards; a server that serves a file with forged deletion records
   could only do so with the credentials of the file.
-- The sync entry keeps the title "Nextcloud sync (SailVault)" and marker of
-  the KDBX code copied from SailVault, so KeePassXC shows it under that
-  name.
 
 ## Known limits of the implementation
 
