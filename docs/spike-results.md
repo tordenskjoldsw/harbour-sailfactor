@@ -187,3 +187,40 @@ Regression: renaming, deleting, the idle lock, the lock after 30 seconds
 in the background ("Locked automatically"), copying a code and the
 clipboard clear after 30 seconds work as in 0.1.0. The details are in the
 review.
+
+## Device test of the file features (Phase 4, 2026-10-08)
+
+Jolla Phone (2026), Sailfish OS 5.2.0.18, the one-file build of `3812eac`
+installed over the reviewed 0.1.0 build, with the Sailjail prompt for
+`Documents` and `Downloads` allowed. Test files from the fixtures (made-up
+content), copied to Downloads with `sfdk device exec dd`.
+
+Verified on the device:
+
+- The existing file unlocks as before, with no migration.
+- "Save a copy for the computer" writes `SailFactor.kdbx` to Downloads,
+  owner-only; its SHA-256 equals the app's file, and KeePassXC on the
+  computer opens it with the master password.
+- "Delete the file" in the settings, behind the dialog and its switch,
+  removes the file and its backups; the unlock page then offers to
+  create or add a file.
+- Adding `TOTP-Test.kdbx` (KDBX 4, no key file) stores it unchanged
+  (same SHA-256), shows the codes, and lists the HOTP entry as not
+  supported; "Keep original" leaves it in Downloads.
+- Adding `KDBX31-Keyfile.kdbx` with its key file: the page names the
+  KDBX 3.1 format; a wrong password stores nothing; the right one stores
+  the file as KDBX 4 and the key file unchanged in `keyfiles/`
+  (`-rw-------`, directory `drwx------`). Checked with `keepassxc-cli`
+  2.7.12 on the stored file: Argon2id with 3 rounds and 256 MiB (the
+  Standard level), every entry and group present, opens with password
+  and key file, refused with the password alone.
+- After a lock, the page says "Opens with its stored key file" and the
+  password alone unlocks.
+- While adding, "Add and unlock" stays disabled until a password is
+  typed.
+- "Delete originals" removes exactly the added file and its key file from
+  Downloads; the other files there stay.
+
+Not reported in this run: saving a copy a second time under a name that
+exists (refused in the code, `Databases::saveCopy`).
+

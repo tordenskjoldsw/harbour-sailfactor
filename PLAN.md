@@ -7,8 +7,8 @@ match KeePassXC and a real service's login, auto-lock, backups; cold start
 review of 0.1.0 (`docs/security-review-2026-10.md`, 2026-10-08, no finding
 above low, fixes tested on the device); adding a file from Documents or
 Downloads with a key file, saving a copy and deleting the file are built
-for the one file the app keeps (decided 2026-10-08, section 14); next is
-their device test and 0.2.0. The name was
+for the one file the app keeps (decided 2026-10-08, section 14) and
+tested on the device (`docs/spike-results.md`); next is 0.2.0. The name was
 chosen on 2026-10-07; a dormant GitHub repository `lanurmi/sailfactor` (an
 integer factoring tool, last commit 2014, never in a store) shares it,
 OpenRepos has no match, the Jolla Store was not searchable without an
