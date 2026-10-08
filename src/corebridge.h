@@ -46,6 +46,16 @@ inline QString takeCoreString(SfString string)
     return text;
 }
 
+// The same as bytes, for values such as an app password that go on to
+// another library; the caller wipes them.
+inline QByteArray takeCoreBytes(SfString string)
+{
+    const QByteArray bytes(reinterpret_cast<const char *>(string.data),
+                           static_cast<int>(string.length));
+    sf_string_free(string);
+    return bytes;
+}
+
 inline SfString emptyCoreString()
 {
     return SfString{nullptr, 0};

@@ -82,6 +82,33 @@ private:
     uint32_t m_kdfLevel;
 };
 
+// Opens another copy of the file for a merge: with the credentials the
+// open file holds, which keeps its handle alive and read-only until the
+// result arrives, or with the copy's own password and key file.
+class MergeTask : public QRunnable
+{
+public:
+    MergeTask(Authenticator *authenticator, int attempt, const SfDatabase *database,
+              const QString &path);
+    // A copy already read, such as a download.
+    MergeTask(Authenticator *authenticator, int attempt, const SfDatabase *database,
+              QByteArray data);
+    MergeTask(Authenticator *authenticator, int attempt, const QString &path, QByteArray password,
+              const QString &keyFilePath);
+    ~MergeTask() override;
+
+    void run() override;
+
+private:
+    Authenticator *m_authenticator;
+    int m_attempt;
+    const SfDatabase *m_database;
+    QString m_path;
+    QByteArray m_password;
+    QString m_keyFilePath;
+    QByteArray m_data;
+};
+
 // Serializes the file, which runs the KDF, and replaces it with backups.
 // The authenticator keeps the handle alive and read-only until the result
 // arrives.

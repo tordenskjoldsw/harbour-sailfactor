@@ -16,6 +16,7 @@
 #include "corebridge.h"
 
 class FrameScanner;
+class MergeTask;
 
 // Owns the unlocked file and the lock state, and the account waiting to be
 // added. QML gets issuers, account names and codes; seeds stay in the Rust
@@ -24,15 +25,16 @@ class FrameScanner;
 // AutoLock and ClipboardGuard keep their deadlines, which are checked again
 // before every access.
 //
-// An edit changes the file in memory and starts a save at once. While the
-// save runs on a pool thread the handle is read-only for everyone, and a
-// lock request waits for the save to finish.
+// An edit changes the file in memory and starts a save at once. While a
+// save or the opening of a copy to merge runs on a pool thread the handle
+// is read-only for everyone, and a lock request waits for it to finish.
 class Authenticator : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(State state READ state NOTIFY stateChanged)
     Q_PROPERTY(Error error READ error NOTIFY errorChanged)
     Q_PROPERTY(bool saving READ saving NOTIFY savingChanged)
+    Q_PROPERTY(bool merging READ merging NOTIFY mergingChanged)
     Q_PROPERTY(bool dirty READ dirty NOTIFY dirtyChanged)
     Q_PROPERTY(bool hasFile READ hasFile NOTIFY hasFileChanged)
     Q_PROPERTY(bool hasKeyFile READ hasKeyFile NOTIFY hasFileChanged)
@@ -98,6 +100,9 @@ public:
     State state() const;
     Error error() const;
     bool saving() const;
+    bool merging() const;
+    // A save or a merge is running; edits wait.
+    bool busy() const;
     // Changes in memory that no save has written yet.
     bool dirty() const;
     // The one file the app keeps (see Databases) exists, and has a key file.
@@ -163,10 +168,43 @@ public:
     // Adds the pending account with the issuer and name the user confirmed.
     Q_INVOKABLE bool addPending(const QString &issuer, const QString &name);
 
+    // Merges another copy of the file, such as the one from the computer,
+    // opened with the credentials this file was unlocked with, and saves.
+    // Reports mergeFinished, mergeNeedsPassword or mergeFailed.
+    Q_INVOKABLE void mergeFile(const QString &path);
+    // The same with the copy's own credentials: password, empty for none,
+    // and the key file at keyFilePath, or the stored one of this file.
+    Q_INVOKABLE void mergeFileWith(const QString &path, const QString &password,
+                                   const QString &keyFilePath, bool useStoredKeyFile);
+    // Deletes the file the last merge read, and nothing else.
+    Q_INVOKABLE bool removeMergedFile();
+
+    // For the sync: merges a downloaded copy, opened with the held
+    // credentials, and saves; reports syncMergeFinished or syncMergeFailed.
+    // Refused while busy.
+    bool mergeData(const QByteArray &data);
+    // SHA-256 of the file as unlocked or last saved.
+    QByteArray fileDigest() const;
+    // One SF_SYNC_* setting as UTF-8, empty without a sync entry. The caller
+    // wipes it.
+    QByteArray syncSetting(uint32_t setting);
+    // Stores the sync settings in the file's sync entry and saves.
+    bool storeSyncSettings(const QString &server, const QString &loginName,
+                           const QByteArray &appPassword, const QString &path,
+                           const QByteArray &certificate);
+
 signals:
     void stateChanged();
     void errorChanged();
     void savingChanged();
+    void mergingChanged();
+    void mergeFinished(int added, int modified, int moved, int deleted);
+    void mergeNeedsPassword();
+    void mergeFailed(int error);
+    void syncMergeFinished(bool changed);
+    void syncMergeFailed(int error);
+    // A save wrote the file.
+    void saved();
     void dirtyChanged();
     void hasFileChanged();
     void sourcePathChanged();
@@ -186,6 +224,7 @@ private slots:
     void onUnlockFinished(int attempt, int status, qulonglong handle, const QByteArray &digest);
     void onSaveFinished(int attempt, int status, const QByteArray &digest,
                         bool replacedChangedFile);
+    void onMergeOpened(int attempt, int status, qulonglong handle);
 
 private:
     // One edit of the file; sets changed when it changed anything.
@@ -202,16 +241,20 @@ private:
     // Clears the clipboard and locks when their deadlines have passed.
     void enforceDeadlines();
     void cancelPendingUnlock();
-    // A lock requested during a save waits for it.
+    // A lock requested while busy waits for the task.
     enum class PendingLock { None, Manual, Automatic };
-    // Does what a lock can do while the save still reads the handle, and
-    // leaves the rest to the save's result handler.
+    // Does what a lock can do while a task still reads the handle, and
+    // leaves the rest to the task's result handler.
     void deferLock(PendingLock kind);
-    // Runs a lock requested while saving.
+    // Runs a lock requested while busy.
     void resumePendingLock();
     void setState(State state);
     void setError(Error error);
     void setSaving(bool saving);
+    void setMerging(bool merging);
+    void startMerge(const QString &path, MergeTask *task);
+    // Marks an in-memory change and starts its save.
+    void commitChange();
     void setDirty(bool dirty);
     QString pendingText(uint32_t column) const;
     const SfDatabase *readableDatabase() const;
@@ -226,6 +269,11 @@ private:
     State m_state = Locked;
     Error m_error = NoError;
     bool m_saving = false;
+    bool m_merging = false;
+    QString m_mergePath;
+    bool m_mergeForSync = false;
+    // The file the last merge read, until it is deleted or the app locks.
+    QString m_mergedPath;
     bool m_dirty = false;
     bool m_hasFile = false;
     // The source files of the add that runs.

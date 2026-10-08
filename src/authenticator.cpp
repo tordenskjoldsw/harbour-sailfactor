@@ -132,6 +132,16 @@ bool Authenticator::saving() const
     return m_saving;
 }
 
+bool Authenticator::merging() const
+{
+    return m_merging;
+}
+
+bool Authenticator::busy() const
+{
+    return m_saving || m_merging;
+}
+
 bool Authenticator::dirty() const
 {
     return m_dirty;
@@ -197,7 +207,7 @@ bool Authenticator::removeAddedOriginals()
 
 bool Authenticator::removeFile()
 {
-    if (m_state != Unlocked || m_saving)
+    if (m_state != Unlocked || busy())
         return false;
     lock();
     const QString path = Databases::databasePath(Databases::DefaultName);
@@ -340,7 +350,7 @@ void Authenticator::onUnlockFinished(int attempt, int status, qulonglong handle,
 
 void Authenticator::lock()
 {
-    if (m_saving) {
+    if (busy()) {
         deferLock(PendingLock::Manual);
         return;
     }
@@ -356,6 +366,7 @@ void Authenticator::lock()
         return;
     m_database.reset();
     m_fileDigest.clear();
+    m_mergedPath.clear();
     setAddedOriginals(QStringList());
     // An earlier save error no longer applies; changes it kept from being
     // written are gone now, which the unlock page reports.
@@ -381,7 +392,7 @@ void Authenticator::lockAutomatically()
 {
     if (m_state != Unlocked)
         return;
-    if (m_saving) {
+    if (busy()) {
         deferLock(PendingLock::Automatic);
         return;
     }
@@ -530,25 +541,29 @@ bool Authenticator::addPending(const QString &issuer, const QString &name)
 
 bool Authenticator::change(const Edit &edit)
 {
-    if (m_saving || !database())
+    if (busy() || !database())
         return false;
     bool changed = false;
     if (edit(m_database.get(), unixSeconds(), changed) != SF_OK)
         return false;
-    if (changed) {
-        setDirty(true);
-        // The save starts before anyone reloads: a lock deadline met during
-        // the reload then waits for the save instead of discarding the edit.
-        save();
-        updateAccountCount();
-        emit contentChanged();
-    }
+    if (changed)
+        commitChange();
     return true;
+}
+
+void Authenticator::commitChange()
+{
+    setDirty(true);
+    // The save starts before anyone reloads: a lock deadline met during the
+    // reload then waits for the save instead of discarding the change.
+    save();
+    updateAccountCount();
+    emit contentChanged();
 }
 
 void Authenticator::save()
 {
-    if (m_state != Unlocked || m_saving || !m_dirty || !m_database)
+    if (m_state != Unlocked || busy() || !m_dirty || !m_database)
         return;
     setSaving(true);
     QThreadPool::globalInstance()->start(
@@ -563,6 +578,7 @@ void Authenticator::onSaveFinished(int attempt, int status, const QByteArray &di
         if (status == SF_OK) {
             m_fileDigest = digest;
             setDirty(false);
+            emit saved();
             if (replacedChangedFile)
                 emit savedOverChangedFile();
         } else {
@@ -574,8 +590,122 @@ void Authenticator::onSaveFinished(int attempt, int status, const QByteArray &di
     resumePendingLock();
 }
 
+void Authenticator::mergeFile(const QString &path)
+{
+    if (busy() || path.isEmpty() || !database())
+        return;
+    startMerge(path, new MergeTask(this, m_attempt, m_database.get(), path));
+}
+
+void Authenticator::mergeFileWith(const QString &path, const QString &password,
+                                  const QString &keyFilePath, bool useStoredKeyFile)
+{
+    const QString keyFile = useStoredKeyFile && hasKeyFile()
+        ? Databases::keyFilePath(Databases::DefaultName) : keyFilePath;
+    if (busy() || path.isEmpty() || !database() || (password.isEmpty() && keyFile.isEmpty()))
+        return;
+    startMerge(path, new MergeTask(this, m_attempt, path, password.toUtf8(), keyFile));
+}
+
+void Authenticator::startMerge(const QString &path, MergeTask *task)
+{
+    m_mergeForSync = false;
+    m_mergePath = path;
+    m_mergedPath.clear();
+    setMerging(true);
+    QThreadPool::globalInstance()->start(task);
+}
+
+bool Authenticator::mergeData(const QByteArray &data)
+{
+    if (busy() || !database())
+        return false;
+    m_mergeForSync = true;
+    setMerging(true);
+    QThreadPool::globalInstance()->start(new MergeTask(this, m_attempt, m_database.get(), data));
+    return true;
+}
+
+void Authenticator::onMergeOpened(int attempt, int status, qulonglong handle)
+{
+    CoreDatabase source(reinterpret_cast<SfDatabase *>(handle));
+    setMerging(false);
+    // A lock requested meanwhile wins over the merge.
+    if (attempt == m_attempt && m_state == Unlocked && m_pendingLock == PendingLock::None) {
+        SfMergeChanges changes{0, 0, 0, 0, false};
+        if (status == SF_OK)
+            status = sf_database_merge(m_database.get(), source.get(), &changes);
+        const bool changed = changes.added || changes.modified || changes.moved
+            || changes.deleted || changes.metadata;
+        if (m_mergeForSync) {
+            if (status != SF_OK) {
+                emit syncMergeFailed(errorFor(status));
+            } else {
+                if (changed)
+                    commitChange();
+                emit syncMergeFinished(changed);
+            }
+        } else if (status == SF_INVALID_CREDENTIALS) {
+            emit mergeNeedsPassword();
+        } else if (status != SF_OK) {
+            emit mergeFailed(errorFor(status));
+        } else {
+            m_mergedPath = m_mergePath;
+            if (changed)
+                commitChange();
+            emit mergeFinished(static_cast<int>(changes.added), static_cast<int>(changes.modified),
+                               static_cast<int>(changes.moved), static_cast<int>(changes.deleted));
+        }
+    }
+    source.reset();
+    resumePendingLock();
+}
+
+bool Authenticator::removeMergedFile()
+{
+    const bool removed = !m_mergedPath.isEmpty() && QFile::remove(m_mergedPath);
+    m_mergedPath.clear();
+    return removed;
+}
+
+QByteArray Authenticator::fileDigest() const
+{
+    return m_fileDigest;
+}
+
+QByteArray Authenticator::syncSetting(uint32_t setting)
+{
+    const SfDatabase *handle = database();
+    SfString value = emptyCoreString();
+    if (!handle || sf_database_sync_setting(handle, setting, &value) != SF_OK)
+        return QByteArray();
+    return takeCoreBytes(value);
+}
+
+bool Authenticator::storeSyncSettings(const QString &server, const QString &loginName,
+                                      const QByteArray &appPassword, const QString &path,
+                                      const QByteArray &certificate)
+{
+    const QByteArray serverText = server.toUtf8();
+    const QByteArray loginText = loginName.toUtf8();
+    const QByteArray pathText = path.toUtf8();
+    return change([&](SfDatabase *database, int64_t now, bool &changed) {
+        uint8_t uuid[SF_UUID_LENGTH];
+        changed = true;
+        return sf_database_set_sync_settings(
+            database, bytePointer(serverText), static_cast<size_t>(serverText.size()),
+            bytePointer(loginText), static_cast<size_t>(loginText.size()),
+            bytePointer(appPassword), static_cast<size_t>(appPassword.size()),
+            bytePointer(pathText), static_cast<size_t>(pathText.size()),
+            bytePointer(certificate), static_cast<size_t>(certificate.size()), now, uuid);
+    });
+}
+
 void Authenticator::resumePendingLock()
 {
+    // A save the merge started handles the lock when it finishes.
+    if (busy())
+        return;
     const PendingLock pending = m_pendingLock;
     m_pendingLock = PendingLock::None;
     switch (pending) {
@@ -666,4 +796,12 @@ void Authenticator::updateHasFile()
         return;
     m_hasFile = hasFile;
     emit hasFileChanged();
+}
+
+void Authenticator::setMerging(bool merging)
+{
+    if (m_merging == merging)
+        return;
+    m_merging = merging;
+    emit mergingChanged();
 }

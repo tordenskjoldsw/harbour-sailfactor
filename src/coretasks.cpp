@@ -201,3 +201,63 @@ void SaveTask::run()
                               Q_ARG(int, m_attempt), Q_ARG(int, status),
                               Q_ARG(QByteArray, digest), Q_ARG(bool, replacedChangedFile));
 }
+
+MergeTask::MergeTask(Authenticator *authenticator, int attempt, const SfDatabase *database,
+                     const QString &path)
+    : m_authenticator(authenticator)
+    , m_attempt(attempt)
+    , m_database(database)
+    , m_path(path)
+{
+}
+
+MergeTask::MergeTask(Authenticator *authenticator, int attempt, const SfDatabase *database,
+                     QByteArray data)
+    : m_authenticator(authenticator)
+    , m_attempt(attempt)
+    , m_database(database)
+    , m_data(std::move(data))
+{
+}
+
+MergeTask::MergeTask(Authenticator *authenticator, int attempt, const QString &path,
+                     QByteArray password, const QString &keyFilePath)
+    : m_authenticator(authenticator)
+    , m_attempt(attempt)
+    , m_database(nullptr)
+    , m_path(path)
+    , m_password(std::move(password))
+    , m_keyFilePath(keyFilePath)
+{
+}
+
+MergeTask::~MergeTask()
+{
+    secureWipe(m_password);
+}
+
+void MergeTask::run()
+{
+    SfDatabase *opened = nullptr;
+    QByteArray data;
+    int status;
+    if (m_database) {
+        data = m_data;
+        status = m_path.isEmpty() ? SF_OK : readBoundedFile(m_path, MaxDatabaseBytes, data);
+        if (status == SF_OK)
+            status = sf_database_open_like(m_database, bytePointer(data),
+                                           static_cast<size_t>(data.size()), &opened);
+    } else {
+        QByteArray keyFile;
+        status = readAndOpen(m_path, m_keyFilePath, m_password, &opened, data, keyFile);
+        secureWipe(keyFile);
+    }
+    CoreDatabase database(opened);
+    secureWipe(m_password);
+    // The authenticator waits for this result before it locks, so delivery
+    // cannot fail; a copy that is no longer wanted is freed by the slot.
+    if (QMetaObject::invokeMethod(m_authenticator, "onMergeOpened", Qt::QueuedConnection,
+                                  Q_ARG(int, m_attempt), Q_ARG(int, status),
+                                  Q_ARG(qulonglong, reinterpret_cast<qulonglong>(database.get()))))
+        database.release();
+}
