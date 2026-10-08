@@ -18,6 +18,7 @@ pub const UUID_LENGTH: usize = 16;
 
 const TITLE: &str = "Title";
 const USER_NAME: &str = "UserName";
+const PASSWORD: &str = "Password";
 const SETTINGS_ATTRIBUTES: [&str; 7] = [
     ATTRIBUTE_SETTINGS,
     ATTRIBUTE_SEED,
@@ -48,6 +49,9 @@ pub struct Account {
     pub issuer: Zeroizing<String>,
     pub name: Zeroizing<String>,
     pub kind: AccountKind,
+    /// The entry stores a password, such as one from KeePassXC. SailFactor
+    /// never writes or shows one; the pages warn about it.
+    pub has_password: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -95,6 +99,7 @@ pub fn list(database: &Database) -> Result<Vec<Account>, KdbxError> {
             issuer: field(&listed.entry, TITLE),
             name: field(&listed.entry, USER_NAME),
             kind,
+            has_password: !field(&listed.entry, PASSWORD).is_empty(),
         });
     }
     Ok(accounts)

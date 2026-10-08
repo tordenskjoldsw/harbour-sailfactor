@@ -1,7 +1,7 @@
 //! The account model on the TOTP fixture (`tools/gen-totp-fixture.py`).
 
 use sailfactor_core::accounts::{self, AccountError, AccountKind, UUID_LENGTH};
-use sailfactor_core::kdbx::{CompositeKey, Database, KdbxError};
+use sailfactor_core::kdbx::{CompositeKey, Database, KdbxError, NewField};
 use sailfactor_core::otp::{code_at, Algorithm, Encoder, TotpSettings};
 
 const FIXTURE: &[u8] = include_bytes!("fixtures/totp-entries.kdbx");
@@ -168,4 +168,48 @@ fn unreadable_settings_are_listed_as_such() {
         .find(|account| account.issuer.as_str() == "Broken")
         .unwrap();
     assert_eq!(broken.kind, AccountKind::Unreadable);
+}
+
+#[test]
+fn entries_with_a_password_are_marked() {
+    let mut database = open();
+    assert!(
+        accounts::list(&database)
+            .unwrap()
+            .iter()
+            .all(|account| !account.has_password),
+        "the TOTP fixture stores no passwords"
+    );
+    let root = database.root_group().unwrap().uuid().unwrap();
+    let login = database
+        .add_entry_with_fields(
+            &root,
+            vec![
+                NewField::new("Title", "Mail", false),
+                NewField::new("Password", "made-up password", false),
+            ],
+            NOW,
+        )
+        .unwrap();
+    let both = database
+        .add_entry_with_fields(
+            &root,
+            vec![
+                NewField::new("Title", "Forum", false),
+                NewField::new("Password", "another made-up password", false),
+                NewField::new(
+                    "otp",
+                    &format!("otpauth://totp/Forum:me?secret={EXAMPLE_SECRET}"),
+                    true,
+                ),
+            ],
+            NOW,
+        )
+        .unwrap();
+    let listed = accounts::list(&database).unwrap();
+    let find = |uuid| listed.iter().find(|account| account.uuid == uuid).unwrap();
+    assert!(find(login).has_password);
+    assert_eq!(find(login).kind, AccountKind::NoCode);
+    assert!(find(both).has_password);
+    assert!(matches!(find(both).kind, AccountKind::Totp { .. }));
 }

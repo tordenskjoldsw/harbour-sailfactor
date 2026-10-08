@@ -156,6 +156,31 @@ pub unsafe extern "C" fn sf_account_list_kind(
     SF_OK
 }
 
+/// Whether the account's entry stores a password, such as one from
+/// KeePassXC. The password itself never leaves the core.
+///
+/// # Safety
+///
+/// `list` must be a live list; `has_password_out` valid for one write.
+#[no_mangle]
+pub unsafe extern "C" fn sf_account_list_has_password(
+    list: *const SfAccountList,
+    index: usize,
+    has_password_out: *mut bool,
+) -> i32 {
+    // SAFETY: guaranteed by the caller.
+    let Some(has_password_out) = (unsafe { has_password_out.as_mut() }) else {
+        return SF_INVALID_ARGUMENT;
+    };
+    *has_password_out = false;
+    // SAFETY: guaranteed by the caller.
+    let Some(account) = (unsafe { account(list, index) }) else {
+        return SF_NOT_FOUND;
+    };
+    *has_password_out = account.has_password;
+    SF_OK
+}
+
 /// Releases a list and wipes its names.
 ///
 /// # Safety

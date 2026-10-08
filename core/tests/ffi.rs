@@ -4,8 +4,8 @@ use std::ptr;
 
 use sailfactor_core::ffi::accounts::{
     sf_account_add, sf_account_code, sf_account_delete, sf_account_list, sf_account_list_free,
-    sf_account_list_kind, sf_account_list_length, sf_account_list_text, sf_account_list_uuid,
-    sf_account_rename,
+    sf_account_list_has_password, sf_account_list_kind, sf_account_list_length,
+    sf_account_list_text, sf_account_list_uuid, sf_account_rename,
 };
 use sailfactor_core::ffi::database::{
     sf_database_create, sf_database_free, sf_database_from_kdbx3, sf_database_merge,
@@ -562,4 +562,42 @@ fn sync_settings_round_trip_and_stay_out_of_the_account_list() {
     assert!(rows(database).iter().all(|row| row.uuid != uuid));
     // SAFETY: the handle is freed once.
     unsafe { sf_database_free(database) };
+}
+
+#[test]
+fn the_list_says_which_entries_store_a_password() {
+    const LOGINS: &[u8] = include_bytes!("fixtures/kdbx4-aes-aeskdf.kdbx");
+    let database = open(LOGINS, PASSWORD).unwrap();
+    let mut list: *mut SfAccountList = ptr::null_mut();
+    // SAFETY: database is live and list a local.
+    assert_eq!(unsafe { sf_account_list(database, &mut list) }, SF_OK);
+    // SAFETY: list is live until freed below.
+    let length = unsafe { sf_account_list_length(list) };
+    let flags: Vec<bool> = (0..length)
+        .map(|index| {
+            let mut has_password = false;
+            // SAFETY: list is live; has_password is a local.
+            assert_eq!(
+                unsafe { sf_account_list_has_password(list, index, &mut has_password) },
+                SF_OK
+            );
+            has_password
+        })
+        .collect();
+    assert!(
+        flags.iter().any(|&flag| flag),
+        "the login fixture has passwords"
+    );
+    let mut has_password = true;
+    // SAFETY: as above; an index past the end is reported and clears the output.
+    assert_eq!(
+        unsafe { sf_account_list_has_password(list, length, &mut has_password) },
+        SF_NOT_FOUND
+    );
+    assert!(!has_password);
+    // SAFETY: each is freed once.
+    unsafe {
+        sf_account_list_free(list);
+        sf_database_free(database);
+    }
 }

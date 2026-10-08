@@ -153,6 +153,10 @@ int32_t sf_account_list_text(const SfAccountList *list, size_t index, uint32_t c
                              SfString *out);
 int32_t sf_account_list_kind(const SfAccountList *list, size_t index, uint32_t *kind_out,
                              uint32_t *digits_out, uint32_t *period_out, uint32_t *encoder_out);
+/* Whether the account's entry stores a password; the password never
+ * leaves the core. */
+int32_t sf_account_list_has_password(const SfAccountList *list, size_t index,
+                                     bool *has_password_out);
 void sf_account_list_free(SfAccountList *list);
 
 /* The code at now and the seconds until it changes. */
