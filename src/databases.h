@@ -14,6 +14,10 @@ extern const QString DefaultName;
 // Empty when the name is not valid.
 QString databasePath(const QString &name);
 QString backupDirectory();
+// Creates the data directory and the files' directory if needed and
+// limits both to the owner; also run before an unlock, so an installation
+// made before the directories were private gets them tightened.
+bool makeStoragePrivate();
 // Prepares storing a new file under name: creates the private
 // directories. Returns StatusFileExists when the name is taken.
 int claim(const QString &name);

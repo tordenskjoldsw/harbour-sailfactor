@@ -1,7 +1,5 @@
 #include "databases.h"
 
-#include <QDir>
-#include <QFile>
 #include <QFileInfo>
 #include <QStandardPaths>
 
@@ -12,21 +10,19 @@ namespace {
 
 const QString DatabaseSuffix = QStringLiteral(".kdbx");
 
+QString dataRoot()
+{
+    return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+}
+
 QString dataDirectory(const QString &name)
 {
-    return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + QLatin1Char('/')
-        + name;
+    return dataRoot() + QLatin1Char('/') + name;
 }
 
 QString databaseDirectory()
 {
     return dataDirectory(QStringLiteral("databases"));
-}
-
-bool makePrivateDirectory(const QString &path)
-{
-    return QDir().mkpath(path)
-        && QFile::setPermissions(path, QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
 }
 
 } // namespace
@@ -47,9 +43,16 @@ QString backupDirectory()
     return dataDirectory(QStringLiteral("backups"));
 }
 
+// The backups directory is made private the same way when a backup is
+// written.
+bool makeStoragePrivate()
+{
+    return makePrivateDirectory(dataRoot()) && makePrivateDirectory(databaseDirectory());
+}
+
 int claim(const QString &name)
 {
-    if (!isValidName(name) || !makePrivateDirectory(databaseDirectory()))
+    if (!isValidName(name) || !makeStoragePrivate())
         return StatusFileUnwritable;
     return exists(name) ? StatusFileExists : SF_OK;
 }

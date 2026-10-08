@@ -22,14 +22,6 @@ namespace {
 
 const int BackupsToKeep = 3;
 
-bool writeAndSync(QFile &file, const QByteArray &data)
-{
-    if (file.write(data) != data.size() || !file.flush() || ::fsync(file.handle()) != 0)
-        return false;
-    file.close();
-    return file.error() == QFile::NoError;
-}
-
 // Makes a rename or a new file durable: the directory entry is synced too.
 bool syncDirectory(const QString &path)
 {
@@ -78,14 +70,14 @@ bool readsBackAs(int fd, const QByteArray &data)
     return same;
 }
 
-// Writes data to a new temporary file and reads it back through the same
-// descriptor. POSIX calls keep QFile's buffers from holding unwiped copies.
-// A leftover file or a symlink another app planted at tempPath is removed
-// first, and O_EXCL | O_NOFOLLOW refuses anything that appears there in
-// between, so the write never follows a link.
-bool writeTemporary(const QString &tempPath, mode_t mode, const QByteArray &data)
+// Writes data to a new file with the given mode and reads it back through
+// the same descriptor. POSIX calls keep QFile's buffers from holding unwiped
+// copies. A leftover file or a symlink another app planted at path is
+// removed first, and O_EXCL | O_NOFOLLOW refuses anything that appears there
+// in between, so the write never follows a link.
+bool writeExclusively(const QString &path, mode_t mode, const QByteArray &data)
 {
-    const QByteArray name = QFile::encodeName(tempPath);
+    const QByteArray name = QFile::encodeName(path);
     if (::unlink(name.constData()) != 0 && errno != ENOENT)
         return false;
     const int fd = ::open(name.constData(), O_RDWR | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,
@@ -110,21 +102,22 @@ QRegularExpression backupPattern(const QString &databasePath, bool withChangedEl
 
 // Backups are named after the database with a UTC timestamp, so sorting by
 // name sorts by age. A version another program wrote is replaced without a
-// merge, so its backup is marked and stays out of the rotation.
+// merge, so its backup is marked and stays out of the rotation. A backup is
+// written like the database itself: owner-only from the start, exclusively,
+// never through a link.
 bool backUp(const QString &databasePath, const QByteArray &current, const QString &backupDir,
             bool changedElsewhere)
 {
-    QDir dir(backupDir);
-    if (!dir.mkpath(QStringLiteral(".")))
+    if (!makePrivateDirectory(backupDir))
         return false;
+    QDir dir(backupDir);
     const QString base = QFileInfo(databasePath).completeBaseName();
     const QString stamp = QDateTime::currentDateTimeUtc().toString(QStringLiteral("yyyyMMdd-HHmmss-zzz"));
     const QString suffix = changedElsewhere ? QStringLiteral("-changed-elsewhere.kdbx")
                                             : QStringLiteral(".kdbx");
-    QFile backup(dir.filePath(base + QLatin1Char('-') + stamp + suffix));
-    if (!backup.open(QIODevice::WriteOnly | QIODevice::Truncate) || !writeAndSync(backup, current))
+    if (!writeExclusively(dir.filePath(base + QLatin1Char('-') + stamp + suffix),
+                          S_IRUSR | S_IWUSR, current))
         return false;
-    backup.setPermissions(QFile::ReadOwner | QFile::WriteOwner);
 
     QStringList backups = dir.entryList(QDir::Files, QDir::Name)
                               .filter(backupPattern(databasePath, false));
@@ -160,6 +153,12 @@ bool readFully(int fd, char *data, qint64 length)
 }
 
 } // namespace
+
+bool makePrivateDirectory(const QString &path)
+{
+    return QDir().mkpath(path)
+        && QFile::setPermissions(path, QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+}
 
 // POSIX calls instead of QFile, whose read buffer keeps an unwiped copy of
 // small files such as key files.
@@ -204,7 +203,7 @@ int writeDatabaseFile(const QString &path, const QByteArray &data, const QString
     if (::stat(QFile::encodeName(path).constData(), &info) != 0)
         return StatusFileUnwritable;
     const QString tempPath = path + QStringLiteral(".sailfactor-tmp");
-    if (!writeTemporary(tempPath, info.st_mode & 0777, data)
+    if (!writeExclusively(tempPath, info.st_mode & 0777, data)
         || ::rename(QFile::encodeName(tempPath).constData(),
                     QFile::encodeName(path).constData()) != 0) {
         QFile::remove(tempPath);
@@ -224,7 +223,7 @@ int createNewFile(const QString &path, const QByteArray &data)
         return StatusFileExists;
     const QString tempPath = path + QStringLiteral(".sailfactor-tmp");
     const QByteArray tempName = QFile::encodeName(tempPath);
-    if (!writeTemporary(tempPath, S_IRUSR | S_IWUSR, data)) {
+    if (!writeExclusively(tempPath, S_IRUSR | S_IWUSR, data)) {
         ::unlink(tempName.constData());
         return StatusFileUnwritable;
     }

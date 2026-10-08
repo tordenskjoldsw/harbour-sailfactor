@@ -17,6 +17,9 @@ enum DatabaseFileStatus {
 const qint64 MaxDatabaseBytes = 256 * 1024 * 1024;
 const qint64 MaxKeyFileBytes = 1024 * 1024;
 
+// Creates the directory with its parents and limits it to the owner.
+bool makePrivateDirectory(const QString &path);
+
 // Reads a regular file of at most maxBytes into one exact allocation of the
 // size seen at open time, so a file swapped while reading cannot grow the
 // buffer and no partial copies are left behind by reallocation.
@@ -24,11 +27,12 @@ int readBoundedFile(const QString &path, qint64 maxBytes, QByteArray &out);
 QByteArray fileDigest(const QByteArray &data);
 
 // Replaces the database file without a window in which it is incomplete:
-// copies the current file into backupDir (keeping the newest three), writes
-// data to a temporary file next to the database, syncs and re-reads it, then
-// renames it over the original. A file that no longer matches expectedDigest
-// was changed by another program; it is replaced too, its backup is kept
-// outside the rotation, and replacedChangedFile reports it.
+// copies the current file into backupDir (made owner-only, keeping the
+// newest three), writes data to a temporary file next to the database, syncs
+// and re-reads it, then renames it over the original. A file that no longer
+// matches expectedDigest was changed by another program; it is replaced too,
+// its backup is kept outside the rotation, and replacedChangedFile reports
+// it.
 int writeDatabaseFile(const QString &path, const QByteArray &data, const QString &backupDir,
                       const QByteArray &expectedDigest, bool &replacedChangedFile);
 

@@ -55,6 +55,9 @@ void UnlockTask::run()
 {
     QByteArray data;
     SfDatabase *opened = nullptr;
+    // Tightens the directories of an installation that made them before
+    // they were private; the file itself has been owner-only from the start.
+    Databases::makeStoragePrivate();
     int status = readBoundedFile(m_databasePath, MaxDatabaseBytes, data);
     // KDBX distinguishes "no password" from an empty one. Like KeePassXC,
     // an empty field means no password, and a failed attempt is retried
