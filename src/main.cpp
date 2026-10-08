@@ -13,6 +13,7 @@
 #include "accountlistmodel.h"
 #include "authenticator.h"
 #include "boottime.h"
+#include "databases.h"
 #include "framescanner.h"
 #include "sailfactor_core.h"
 
@@ -42,7 +43,10 @@ int main(int argc, char *argv[])
     qmlRegisterType<FrameScanner>("harbour.sailfactor", 1, 0, "FrameScanner");
     qmlRegisterUncreatableType<Authenticator>("harbour.sailfactor", 1, 0, "Authenticator",
                                               QStringLiteral("Use the authenticator context property"));
+    qmlRegisterUncreatableType<Databases>("harbour.sailfactor", 1, 0, "Databases",
+                                          QStringLiteral("Use the databases context property"));
 
+    Databases databases;
     Authenticator authenticator;
     QScopedPointer<QQuickView> view(SailfishApp::createView());
     // Development builds carry SemVer build metadata after "+" (branch, time
@@ -51,6 +55,7 @@ int main(int argc, char *argv[])
     QCoreApplication::setApplicationVersion(version);
     QQmlContext *context = view->rootContext();
     context->setContextProperty(QStringLiteral("authenticator"), &authenticator);
+    context->setContextProperty(QStringLiteral("databases"), &databases);
     context->setContextProperty(QStringLiteral("appVersion"),
                                 version.section(QLatin1Char('+'), 0, 0));
     context->setContextProperty(QStringLiteral("appBuild"), version.section(QLatin1Char('+'), 1));

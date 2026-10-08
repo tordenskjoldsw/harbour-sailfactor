@@ -182,6 +182,22 @@ int readBoundedFile(const QString &path, qint64 maxBytes, QByteArray &out)
     return status;
 }
 
+int readFileStart(const QString &path, int length, QByteArray &out)
+{
+    struct stat info;
+    const int fd = openRegularFile(path, info);
+    if (fd < 0)
+        return StatusFileUnreadable;
+    out = QByteArray(static_cast<int>(qMin<qint64>(length, info.st_size)), Qt::Uninitialized);
+    const bool read = readFully(fd, out.data(), out.size());
+    ::close(fd);
+    if (!read) {
+        out.clear();
+        return StatusFileUnreadable;
+    }
+    return SF_OK;
+}
+
 QByteArray fileDigest(const QByteArray &data)
 {
     return QCryptographicHash::hash(data, QCryptographicHash::Sha256);
@@ -235,4 +251,14 @@ int createNewFile(const QString &path, const QByteArray &data)
     // As after a rename: the file exists now, and a retry would only find it.
     syncDirectory(QFileInfo(path).absolutePath());
     return SF_OK;
+}
+
+bool removeBackups(const QString &databasePath, const QString &backupDir)
+{
+    QDir dir(backupDir);
+    bool removed = true;
+    const QStringList backups = dir.entryList(QDir::Files).filter(backupPattern(databasePath, true));
+    for (const QString &backup : backups)
+        removed = dir.remove(backup) && removed;
+    return removed;
 }

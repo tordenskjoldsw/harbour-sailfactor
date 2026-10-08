@@ -24,6 +24,8 @@ bool makePrivateDirectory(const QString &path);
 // size seen at open time, so a file swapped while reading cannot grow the
 // buffer and no partial copies are left behind by reallocation.
 int readBoundedFile(const QString &path, qint64 maxBytes, QByteArray &out);
+// Reads at most the first length bytes of a regular file.
+int readFileStart(const QString &path, int length, QByteArray &out);
 QByteArray fileDigest(const QByteArray &data);
 
 // Replaces the database file without a window in which it is incomplete:
@@ -41,5 +43,9 @@ int writeDatabaseFile(const QString &path, const QByteArray &data, const QString
 // linked to path, which fails instead of replacing a file that appeared
 // meanwhile.
 int createNewFile(const QString &path, const QByteArray &data);
+
+// Removes every backup writeDatabaseFile made of the database at path,
+// including those of versions changed by another program.
+bool removeBackups(const QString &databasePath, const QString &backupDir);
 
 #endif // DATABASEFILE_H

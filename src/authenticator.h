@@ -4,6 +4,7 @@
 #include <QByteArray>
 #include <QObject>
 #include <QString>
+#include <QStringList>
 #include <QVariantMap>
 
 #include <atomic>
@@ -33,7 +34,11 @@ class Authenticator : public QObject
     Q_PROPERTY(Error error READ error NOTIFY errorChanged)
     Q_PROPERTY(bool saving READ saving NOTIFY savingChanged)
     Q_PROPERTY(bool dirty READ dirty NOTIFY dirtyChanged)
-    Q_PROPERTY(bool hasFile READ hasFile NOTIFY hasFileChanged)
+    Q_PROPERTY(QString databaseName READ databaseName WRITE setDatabaseName NOTIFY databaseNameChanged)
+    Q_PROPERTY(QString sourcePath READ sourcePath WRITE setSourcePath NOTIFY sourcePathChanged)
+    Q_PROPERTY(QString sourceKeyFilePath READ sourceKeyFilePath WRITE setSourceKeyFilePath NOTIFY sourceKeyFilePathChanged)
+    Q_PROPERTY(bool sourceFromKdbx3 READ sourceFromKdbx3 NOTIFY sourcePathChanged)
+    Q_PROPERTY(QStringList addedOriginals READ addedOriginals NOTIFY addedOriginalsChanged)
     Q_PROPERTY(int accountCount READ accountCount NOTIFY accountCountChanged)
     Q_PROPERTY(bool hasPending READ hasPending NOTIFY pendingChanged)
     Q_PROPERTY(QString pendingIssuer READ pendingIssuer NOTIFY pendingChanged)
@@ -51,6 +56,7 @@ public:
     enum Error {
         NoError,
         WrongPassword,
+        InvalidKeyFile,
         NotKdbx,
         UnsupportedFormat,
         Corrupted,
@@ -93,7 +99,19 @@ public:
     bool saving() const;
     // Changes in memory that no save has written yet.
     bool dirty() const;
-    bool hasFile() const;
+    // The stored file that unlock opens (see Databases); changes only while
+    // locked and is remembered across starts.
+    QString databaseName() const;
+    void setDatabaseName(const QString &name);
+    // A file and key file outside the app that addFile stores.
+    QString sourcePath() const;
+    void setSourcePath(const QString &path);
+    QString sourceKeyFilePath() const;
+    void setSourceKeyFilePath(const QString &path);
+    // The source is a KDBX 3.1 file, which addFile stores as KDBX 4.
+    bool sourceFromKdbx3() const;
+    // The source files of the file added by the last unlock, until it locks.
+    QStringList addedOriginals() const;
     int accountCount() const;
     bool hasPending() const;
     QString pendingIssuer() const;
@@ -109,9 +127,21 @@ public:
     QString code(const QByteArray &uuid, qint64 now, uint32_t &remaining) const;
 
     Q_INVOKABLE void unlock(const QString &password);
-    // Creates the file, protected by password with the key derivation
-    // kdfLevel, and unlocks it; an existing file is never replaced.
-    Q_INVOKABLE void createFile(const QString &password, int kdfLevel);
+    // Unlocks the source files and stores copies under name, which then
+    // becomes the file unlock opens; an existing file is never replaced. A
+    // KDBX 3.1 source is stored as KDBX 4 with the key derivation
+    // kdfLevel. Refused without a password: the stored key file sits next
+    // to the stored file, so only the password protects it.
+    Q_INVOKABLE void addFile(const QString &name, const QString &password, int kdfLevel);
+    // Creates a file under name, protected by password with the key
+    // derivation kdfLevel, and unlocks it; an existing file is never
+    // replaced.
+    Q_INVOKABLE void createFile(const QString &name, const QString &password, int kdfLevel);
+    // Deletes the addedOriginals, and nothing else.
+    Q_INVOKABLE bool removeAddedOriginals();
+    // Deletes a stored file with its key file and backups; refused unless
+    // locked.
+    Q_INVOKABLE bool removeFile(const QString &name);
     Q_INVOKABLE void lock();
     Q_INVOKABLE void clearError();
 
@@ -138,7 +168,10 @@ signals:
     void errorChanged();
     void savingChanged();
     void dirtyChanged();
-    void hasFileChanged();
+    void databaseNameChanged();
+    void sourcePathChanged();
+    void sourceKeyFilePathChanged();
+    void addedOriginalsChanged();
     void accountCountChanged();
     void pendingChanged();
     void lockedAutomatically();
@@ -161,7 +194,7 @@ private:
     // Runs an edit and saves when it changed anything; refused while a save
     // runs or when locked.
     bool change(const Edit &edit);
-    int startUnlocking();
+    int startUnlocking(const QString &name, const QStringList &sources = QStringList());
     void save();
     void setPending(CorePending pending);
     void updateAccountCount();
@@ -182,6 +215,9 @@ private:
     void setDirty(bool dirty);
     QString pendingText(uint32_t column) const;
     const SfDatabase *readableDatabase() const;
+    void setAddedOriginals(const QStringList &paths);
+    void clearSource();
+    void saveSettings() const;
 
     CoreDatabase m_database;
     CorePending m_pending;
@@ -191,7 +227,14 @@ private:
     Error m_error = NoError;
     bool m_saving = false;
     bool m_dirty = false;
-    bool m_hasFile = false;
+    QString m_databaseName;
+    // The name and source files of the unlock that runs.
+    QString m_unlockingName;
+    QStringList m_unlockingSources;
+    QStringList m_addedOriginals;
+    QString m_sourcePath;
+    bool m_sourceFromKdbx3 = false;
+    QString m_sourceKeyFilePath;
     int m_accountCount = 0;
     PendingLock m_pendingLock = PendingLock::None;
     // SHA-256 of the file as it was unlocked or last saved.

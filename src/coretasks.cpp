@@ -9,12 +9,33 @@
 
 namespace {
 
-int openWith(const QByteArray &data, const QByteArray &password, bool hasPassword,
-             SfDatabase **database)
+int openWith(const QByteArray &data, const QByteArray &keyFile, const QByteArray &password,
+             bool hasPassword, SfDatabase **database)
 {
     return sf_database_open(bytePointer(data), static_cast<size_t>(data.size()),
                             bytePointer(password), static_cast<size_t>(password.size()),
-                            hasPassword, nullptr, 0, database);
+                            hasPassword, bytePointer(keyFile), static_cast<size_t>(keyFile.size()),
+                            database);
+}
+
+// Reads the file and the key file, if there is one, and runs the KDF. The
+// caller wipes keyFile.
+int readAndOpen(const QString &databasePath, const QString &keyFilePath,
+                const QByteArray &password, SfDatabase **database, QByteArray &data,
+                QByteArray &keyFile)
+{
+    int status = readBoundedFile(databasePath, MaxDatabaseBytes, data);
+    if (status == SF_OK && !keyFilePath.isEmpty())
+        status = readBoundedFile(keyFilePath, MaxKeyFileBytes, keyFile);
+    if (status != SF_OK)
+        return status;
+    // KDBX distinguishes "no password" from an empty one. Like KeePassXC,
+    // an empty field means no password, and a failed attempt is retried
+    // with an empty password.
+    status = openWith(data, keyFile, password, !password.isEmpty(), database);
+    if (status == SF_INVALID_CREDENTIALS && password.isEmpty())
+        status = openWith(data, keyFile, password, true, database);
+    return status;
 }
 
 // Hands the unlocked handle to the authenticator, or frees it when the
@@ -37,11 +58,13 @@ void deliver(Authenticator *authenticator, const std::atomic_bool &cancelled, in
 } // namespace
 
 UnlockTask::UnlockTask(Authenticator *authenticator, std::shared_ptr<std::atomic_bool> cancelled,
-                       int attempt, const QString &databasePath, QByteArray password)
+                       int attempt, const QString &databasePath, const QString &keyFilePath,
+                       QByteArray password)
     : m_authenticator(authenticator)
     , m_cancelled(std::move(cancelled))
     , m_attempt(attempt)
     , m_databasePath(databasePath)
+    , m_keyFilePath(keyFilePath)
     , m_password(std::move(password))
 {
 }
@@ -54,22 +77,69 @@ UnlockTask::~UnlockTask()
 void UnlockTask::run()
 {
     QByteArray data;
+    QByteArray keyFile;
     SfDatabase *opened = nullptr;
     // Tightens the directories of an installation that made them before
     // they were private; the file itself has been owner-only from the start.
     Databases::makeStoragePrivate();
-    int status = readBoundedFile(m_databasePath, MaxDatabaseBytes, data);
-    // KDBX distinguishes "no password" from an empty one. Like KeePassXC,
-    // an empty field means no password, and a failed attempt is retried
-    // with an empty password.
-    if (status == SF_OK)
-        status = openWith(data, m_password, !m_password.isEmpty(), &opened);
-    if (status == SF_INVALID_CREDENTIALS && m_password.isEmpty())
-        status = openWith(data, m_password, true, &opened);
+    const int status = readAndOpen(m_databasePath, m_keyFilePath, m_password, &opened, data,
+                                   keyFile);
     CoreDatabase database(opened);
     secureWipe(m_password);
+    secureWipe(keyFile);
     deliver(m_authenticator, *m_cancelled, m_attempt, status, std::move(database),
             fileDigest(data));
+}
+
+AddTask::AddTask(Authenticator *authenticator, std::shared_ptr<std::atomic_bool> cancelled,
+                 int attempt, const QString &databasePath, const QString &keyFilePath,
+                 const QString &name, QByteArray password, uint32_t kdfLevel)
+    : m_authenticator(authenticator)
+    , m_cancelled(std::move(cancelled))
+    , m_attempt(attempt)
+    , m_databasePath(databasePath)
+    , m_keyFilePath(keyFilePath)
+    , m_name(name)
+    , m_password(std::move(password))
+    , m_kdfLevel(kdfLevel)
+{
+}
+
+AddTask::~AddTask()
+{
+    secureWipe(m_password);
+}
+
+void AddTask::run()
+{
+    SfDatabase *opened = nullptr;
+    QByteArray data;
+    QByteArray keyFile;
+    int status = readAndOpen(m_databasePath, m_keyFilePath, m_password, &opened, data, keyFile);
+    CoreDatabase database(opened);
+    secureWipe(m_password);
+    bool fromKdbx3 = false;
+    if (status == SF_OK)
+        status = sf_database_from_kdbx3(database.get(), &fromKdbx3);
+    CoreBytes converted;
+    if (status == SF_OK && fromKdbx3) {
+        status = sf_database_set_kdf_level(database.get(), m_kdfLevel);
+        if (status == SF_OK)
+            status = sf_database_save(database.get(), converted.out());
+    }
+    const QByteArray file = fromKdbx3 ? converted.view() : data;
+    // Only a file the credentials open is stored, together with the key
+    // file that opened it. The key file goes first: a file without it could
+    // not be opened, while a leftover key file is removed by the next claim.
+    if (status == SF_OK)
+        status = Databases::claim(m_name);
+    if (status == SF_OK && !keyFile.isEmpty())
+        status = createNewFile(Databases::keyFilePath(m_name), keyFile);
+    secureWipe(keyFile);
+    if (status == SF_OK)
+        status = createNewFile(Databases::databasePath(m_name), file);
+    deliver(m_authenticator, *m_cancelled, m_attempt, status, std::move(database),
+            fileDigest(file));
 }
 
 CreateTask::CreateTask(Authenticator *authenticator, std::shared_ptr<std::atomic_bool> cancelled,

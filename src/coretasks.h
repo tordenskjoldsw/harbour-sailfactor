@@ -17,12 +17,13 @@ class Authenticator;
 // result is no longer wanted frees it itself. The authenticator outlives
 // every task: its destructor cancels and waits for the pool.
 
-// Reads the file and runs the KDF.
+// Reads the file and its key file, if it has one, and runs the KDF.
 class UnlockTask : public QRunnable
 {
 public:
     UnlockTask(Authenticator *authenticator, std::shared_ptr<std::atomic_bool> cancelled,
-               int attempt, const QString &databasePath, QByteArray password);
+               int attempt, const QString &databasePath, const QString &keyFilePath,
+               QByteArray password);
     ~UnlockTask() override;
 
     void run() override;
@@ -32,7 +33,33 @@ private:
     std::shared_ptr<std::atomic_bool> m_cancelled;
     int m_attempt;
     QString m_databasePath;
+    QString m_keyFilePath;
     QByteArray m_password;
+};
+
+// Reads a file and its key file from outside the app, unlocks them and
+// stores copies under name; a KDBX 3.1 file is stored as the KDBX 4 file it
+// becomes, with Argon2id at kdfLevel. The unlocked handle is handed over
+// like an unlock does.
+class AddTask : public QRunnable
+{
+public:
+    AddTask(Authenticator *authenticator, std::shared_ptr<std::atomic_bool> cancelled,
+            int attempt, const QString &databasePath, const QString &keyFilePath,
+            const QString &name, QByteArray password, uint32_t kdfLevel);
+    ~AddTask() override;
+
+    void run() override;
+
+private:
+    Authenticator *m_authenticator;
+    std::shared_ptr<std::atomic_bool> m_cancelled;
+    int m_attempt;
+    QString m_databasePath;
+    QString m_keyFilePath;
+    QString m_name;
+    QByteArray m_password;
+    uint32_t m_kdfLevel;
 };
 
 // Creates the file and stores it under name, then hands over the unlocked

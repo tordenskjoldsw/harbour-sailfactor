@@ -1,6 +1,9 @@
 #include "authenticator.h"
 
 #include <QCoreApplication>
+#include <QFile>
+#include <QSettings>
+#include <QStandardPaths>
 #include <QThreadPool>
 
 #include "coretasks.h"
@@ -10,14 +13,24 @@
 
 namespace {
 
+// Holds the name of the chosen file, nothing else.
+QString settingsPath()
+{
+    return QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation)
+        + QStringLiteral("/settings.ini");
+}
+
+const QString DatabaseNameKey = QStringLiteral("databaseName");
+
 Authenticator::Error errorFor(int status)
 {
     switch (status) {
     case SF_OK:
         return Authenticator::NoError;
     case SF_INVALID_CREDENTIALS:
-    case SF_INVALID_KEY_FILE:
         return Authenticator::WrongPassword;
+    case SF_INVALID_KEY_FILE:
+        return Authenticator::InvalidKeyFile;
     case SF_NOT_KDBX:
         return Authenticator::NotKdbx;
     case SF_UNSUPPORTED_FORMAT:
@@ -37,6 +50,17 @@ Authenticator::Error errorFor(int status)
     default:
         return Authenticator::Corrupted;
     }
+}
+
+bool isKdbx3File(const QString &path)
+{
+    QByteArray start;
+    uint16_t major = 0;
+    uint16_t minor = 0;
+    return readFileStart(path, 12, start) == SF_OK
+        && sf_kdbx_version(bytePointer(start), static_cast<size_t>(start.size()), &major, &minor)
+               == SF_OK
+        && major == 3;
 }
 
 bool isKdfLevel(int level)
@@ -67,8 +91,19 @@ private:
 Authenticator::Authenticator(QObject *parent)
     : QObject(parent)
     , m_unlockCancelled(std::make_shared<std::atomic_bool>(false))
-    , m_hasFile(Databases::exists(Databases::DefaultName))
 {
+    const QSettings settings(settingsPath(), QSettings::IniFormat);
+    const QString name = settings.value(DatabaseNameKey).toString();
+    if (Databases::exists(name)) {
+        m_databaseName = name;
+    } else {
+        // A single file needs no choice; versions before 0.2.0 kept one
+        // file and no settings.
+        const QStringList names = Databases::names();
+        if (names.size() == 1)
+            m_databaseName = names.first();
+    }
+
     connect(&m_autoLock, &AutoLock::expired, this, &Authenticator::lockAutomatically);
     connect(qApp, &QCoreApplication::aboutToQuit, this, &Authenticator::lock);
 }
@@ -124,9 +159,86 @@ bool Authenticator::dirty() const
     return m_dirty;
 }
 
-bool Authenticator::hasFile() const
+QString Authenticator::databaseName() const
 {
-    return m_hasFile;
+    return m_databaseName;
+}
+
+void Authenticator::setDatabaseName(const QString &name)
+{
+    // Saves write to this file, so it changes only while locked.
+    if (m_state != Locked || m_databaseName == name || (!name.isEmpty() && !Databases::exists(name)))
+        return;
+    m_databaseName = name;
+    setError(NoError);
+    emit databaseNameChanged();
+    saveSettings();
+}
+
+QString Authenticator::sourcePath() const
+{
+    return m_sourcePath;
+}
+
+void Authenticator::setSourcePath(const QString &path)
+{
+    if (m_state != Locked || m_sourcePath == path)
+        return;
+    m_sourcePath = path;
+    m_sourceFromKdbx3 = !path.isEmpty() && isKdbx3File(path);
+    setError(NoError);
+    emit sourcePathChanged();
+}
+
+bool Authenticator::sourceFromKdbx3() const
+{
+    return m_sourceFromKdbx3;
+}
+
+QString Authenticator::sourceKeyFilePath() const
+{
+    return m_sourceKeyFilePath;
+}
+
+void Authenticator::setSourceKeyFilePath(const QString &path)
+{
+    if (m_state != Locked || m_sourceKeyFilePath == path)
+        return;
+    m_sourceKeyFilePath = path;
+    setError(NoError);
+    emit sourceKeyFilePathChanged();
+}
+
+QStringList Authenticator::addedOriginals() const
+{
+    return m_addedOriginals;
+}
+
+bool Authenticator::removeAddedOriginals()
+{
+    bool removed = true;
+    for (const QString &path : m_addedOriginals)
+        removed = QFile::remove(path) && removed;
+    setAddedOriginals(QStringList());
+    return removed;
+}
+
+bool Authenticator::removeFile(const QString &name)
+{
+    if (m_state != Locked || !Databases::exists(name))
+        return false;
+    const QString path = Databases::databasePath(name);
+    if (!QFile::remove(path))
+        return false;
+    if (m_databaseName == name) {
+        m_databaseName.clear();
+        setError(NoError);
+        emit databaseNameChanged();
+        saveSettings();
+    }
+    const QString keyFile = Databases::keyFilePath(name);
+    const bool keyFileRemoved = !QFile::exists(keyFile) || QFile::remove(keyFile);
+    return removeBackups(path, Databases::backupDirectory()) && keyFileRemoved;
 }
 
 int Authenticator::accountCount() const
@@ -187,27 +299,47 @@ QString Authenticator::code(const QByteArray &uuid, qint64 now, uint32_t &remain
 
 void Authenticator::unlock(const QString &password)
 {
-    if (m_state != Locked || !m_hasFile)
+    if (m_state != Locked || !Databases::exists(m_databaseName))
         return;
-    const int attempt = startUnlocking();
+    const QString keyFile = Databases::hasKeyFile(m_databaseName)
+        ? Databases::keyFilePath(m_databaseName) : QString();
+    const int attempt = startUnlocking(m_databaseName);
     // The task owns the only copy of the password bytes and wipes it.
-    QThreadPool::globalInstance()->start(
-        new UnlockTask(this, m_unlockCancelled, attempt,
-                       Databases::databasePath(Databases::DefaultName), password.toUtf8()));
+    QThreadPool::globalInstance()->start(new UnlockTask(this, m_unlockCancelled, attempt,
+                                                        Databases::databasePath(m_databaseName),
+                                                        keyFile, password.toUtf8()));
 }
 
-void Authenticator::createFile(const QString &password, int kdfLevel)
+void Authenticator::addFile(const QString &name, const QString &password, int kdfLevel)
 {
-    if (m_state != Locked || m_hasFile || password.isEmpty() || !isKdfLevel(kdfLevel))
+    if (m_state != Locked || m_sourcePath.isEmpty() || !Databases::isValidName(name)
+        || password.isEmpty() || !isKdfLevel(kdfLevel))
         return;
-    const int attempt = startUnlocking();
-    QThreadPool::globalInstance()->start(new CreateTask(this, m_unlockCancelled, attempt,
-                                                        Databases::DefaultName, password.toUtf8(),
+    QStringList sources(m_sourcePath);
+    if (!m_sourceKeyFilePath.isEmpty())
+        sources.append(m_sourceKeyFilePath);
+    const int attempt = startUnlocking(name, sources);
+    QThreadPool::globalInstance()->start(new AddTask(this, m_unlockCancelled, attempt,
+                                                     m_sourcePath, m_sourceKeyFilePath, name,
+                                                     password.toUtf8(),
+                                                     static_cast<uint32_t>(kdfLevel)));
+}
+
+void Authenticator::createFile(const QString &name, const QString &password, int kdfLevel)
+{
+    if (m_state != Locked || !Databases::isValidName(name) || Databases::exists(name)
+        || password.isEmpty() || !isKdfLevel(kdfLevel))
+        return;
+    const int attempt = startUnlocking(name);
+    QThreadPool::globalInstance()->start(new CreateTask(this, m_unlockCancelled, attempt, name,
+                                                        password.toUtf8(),
                                                         static_cast<uint32_t>(kdfLevel)));
 }
 
-int Authenticator::startUnlocking()
+int Authenticator::startUnlocking(const QString &name, const QStringList &sources)
 {
+    m_unlockingName = name;
+    m_unlockingSources = sources;
     setError(NoError);
     setState(Unlocking);
     return ++m_attempt;
@@ -226,10 +358,15 @@ void Authenticator::onUnlockFinished(int attempt, int status, qulonglong handle,
     }
     m_database = std::move(database);
     m_fileDigest = digest;
-    if (!m_hasFile) {
-        m_hasFile = true;
-        emit hasFileChanged();
+    if (m_databaseName != m_unlockingName) {
+        m_databaseName = m_unlockingName;
+        emit databaseNameChanged();
     }
+    // An added file is stored now; a pending add is abandoned once another
+    // file opens.
+    clearSource();
+    setAddedOriginals(m_unlockingSources);
+    saveSettings();
     updateAccountCount();
     setState(Unlocked);
     // Starts the deadlines; an app that went to the background while the
@@ -255,6 +392,7 @@ void Authenticator::lock()
         return;
     m_database.reset();
     m_fileDigest.clear();
+    setAddedOriginals(QStringList());
     // An earlier save error no longer applies; changes it kept from being
     // written are gone now, which the unlock page reports.
     setError(m_dirty ? ChangesDiscarded : NoError);
@@ -450,8 +588,8 @@ void Authenticator::save()
         return;
     setSaving(true);
     QThreadPool::globalInstance()->start(
-        new SaveTask(this, m_attempt, m_database.get(),
-                     Databases::databasePath(Databases::DefaultName), m_fileDigest));
+        new SaveTask(this, m_attempt, m_database.get(), Databases::databasePath(m_databaseName),
+                     m_fileDigest));
 }
 
 void Authenticator::onSaveFinished(int attempt, int status, const QByteArray &digest,
@@ -534,4 +672,31 @@ void Authenticator::setDirty(bool dirty)
         return;
     m_dirty = dirty;
     emit dirtyChanged();
+}
+
+void Authenticator::setAddedOriginals(const QStringList &paths)
+{
+    if (m_addedOriginals == paths)
+        return;
+    m_addedOriginals = paths;
+    emit addedOriginalsChanged();
+}
+
+void Authenticator::clearSource()
+{
+    if (!m_sourcePath.isEmpty()) {
+        m_sourcePath.clear();
+        m_sourceFromKdbx3 = false;
+        emit sourcePathChanged();
+    }
+    if (!m_sourceKeyFilePath.isEmpty()) {
+        m_sourceKeyFilePath.clear();
+        emit sourceKeyFilePathChanged();
+    }
+}
+
+void Authenticator::saveSettings() const
+{
+    QSettings settings(settingsPath(), QSettings::IniFormat);
+    settings.setValue(DatabaseNameKey, m_databaseName);
 }
