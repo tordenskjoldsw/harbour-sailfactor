@@ -70,7 +70,19 @@ bool copyCentralLuma(const QVideoFrame &frame, QByteArray &luma, int &side)
     const int width = frame.width();
     const int height = frame.height();
     const int stride = frame.bytesPerLine(0);
-    if (width <= 0 || height <= 0 || stride < (width - 1) * layout.pixelStep + layout.offset + 1)
+    // The core's bound, applied before any arithmetic on the dimensions and
+    // before the copy is allocated.
+    if (width <= 0 || height <= 0 || width > int(SF_MAX_FRAME_DIMENSION)
+        || height > int(SF_MAX_FRAME_DIMENSION)
+        || stride < (width - 1) * layout.pixelStep + layout.offset + 1)
+        return false;
+    // The last pixel of the last row must lie inside the mapped buffer, so
+    // frame metadata that disagrees with the buffer never reads past it. A
+    // buffer that reports no size is trusted as before.
+    const qint64 lastByte = qint64(height - 1) * stride + qint64(width - 1) * layout.pixelStep
+        + layout.offset;
+    const int mapped = frame.mappedBytes();
+    if (mapped > 0 && lastByte >= mapped)
         return false;
     side = qMin(width, height);
     const int left = (width - side) / 2;
@@ -192,8 +204,12 @@ bool FrameScanner::accepting() const
 
 void FrameScanner::decode(QByteArray luma, int width, int height)
 {
-    if (m_decoding.exchange(true))
+    if (m_decoding.exchange(true)) {
+        // Not reached while the render thread is the only caller, but the
+        // copy shows a code and must not be freed unwiped.
+        secureWipe(luma);
         return;
+    }
     m_pool.start(new DecodeTask(this, std::move(luma), width, height));
 }
 
@@ -222,6 +238,12 @@ void FrameScanner::onDecoded(int status, qulonglong pending)
     m_decoding.store(false);
     if (m_paused.load() || status == SF_NOT_FOUND || status == SF_CORRUPTED)
         return;
+    if (status == SF_INVALID_ARGUMENT) {
+        // The core refused the frame's dimensions, which says nothing about
+        // a code in it.
+        onUnsupportedFrame();
+        return;
+    }
     const int rejection = Authenticator::pendingStatus(status);
     if (rejection != Authenticator::PendingReady) {
         // Scanning goes on: the next code in view may be the right one.

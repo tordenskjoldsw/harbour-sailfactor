@@ -55,6 +55,8 @@ extern "C" {
 #define SF_KDF_MAXIMUM 2u
 
 #define SF_UUID_LENGTH 16
+/* The most pixels per side sf_pending_from_frame accepts. */
+#define SF_MAX_FRAME_DIMENSION 4096u
 
 typedef struct SfDatabase SfDatabase;
 typedef struct SfPending SfPending;
@@ -125,7 +127,8 @@ int32_t sf_account_delete(SfDatabase *database, const uint8_t *uuid, int64_t now
 /*
  * Accounts waiting to be added. A camera frame has one byte of brightness
  * per pixel, pixel_step bytes (1 to 4) apart and row_stride bytes per row,
- * at most 4096 pixels per side; SF_NOT_FOUND means no QR code in it. A
+ * at most SF_MAX_FRAME_DIMENSION pixels per side; SF_NOT_FOUND means no QR
+ * code in it. A
  * typed secret is Base32 with digits 1 to 10 and a period of 1 to 86400
  * seconds; its issuer and name are empty.
  */

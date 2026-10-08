@@ -57,6 +57,7 @@ pub const SF_KDF_HIGH: u32 = 1;
 pub const SF_KDF_MAXIMUM: u32 = 2;
 
 pub const SF_UUID_LENGTH: usize = UUID_LENGTH;
+pub const SF_MAX_FRAME_DIMENSION: u32 = crate::qr::MAX_FRAME_DIMENSION as u32;
 
 const VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), "\0");
 
