@@ -1,13 +1,13 @@
 # SailFactor - Project Plan
 
-Status: 2026-10-08 - Phases 0 to 2 done; the Phase 3 MVP works on the
-Jolla Phone (create, unlock, scan or type in accounts, codes that match
-KeePassXC, auto-lock, backups; cold start 506 ms median,
-`docs/spike-results.md`). Open in Phase 3: a login at a real service. The
-name was chosen on 2026-10-07; a dormant GitHub repository
-`lanurmi/sailfactor` (an integer factoring tool, last commit 2014, never
-in a store) shares it, OpenRepos has no match, the Jolla Store was not
-searchable without an account.
+Status: 2026-10-08 - Phases 0 to 3 done: the MVP works on the Jolla Phone
+(create, unlock, scan or type in accounts, codes that match KeePassXC and
+a real service's login, auto-lock, backups; cold start 506 ms median,
+`docs/spike-results.md`). Next: the 0.1.0 release, then Phase 4. The name
+was chosen on 2026-10-07; a dormant GitHub repository `lanurmi/sailfactor`
+(an integer factoring tool, last commit 2014, never in a store) shares it,
+OpenRepos has no match, the Jolla Store was not searchable without an
+account.
 
 SailFactor is the "separate authenticator app" that SailVault's plan
 (section 4 there) left for a later, independent project. It shares no

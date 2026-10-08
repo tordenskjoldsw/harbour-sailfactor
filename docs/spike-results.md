@@ -161,4 +161,15 @@ the unlock page:
 than 1 s. The time from key derivation to the list was not measured
 separately.
 
-Open: a login at a real service with a code from SailFactor.
+
+Scanning, tuned after the first test (verified on the device): in the
+camera's viewfinder mode a code held near the screen stayed blurry and
+was found slowly. In still image mode with continuous autofocus, a
+1920 x 1080 viewfinder and only the central square decoded at full
+resolution, a code is recognized as soon as it is inside the guide
+frame, and the preview stays smooth. This replaces the Phase 1 setting
+of 1280 x 720 with every second frame decoded on the render thread;
+decoding now runs on a worker thread and skips frames while busy.
+
+A login at a real service with a code from SailFactor succeeded
+(verified on the device, 2026-10-08).
