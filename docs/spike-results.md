@@ -224,3 +224,28 @@ Verified on the device:
 Not reported in this run: saving a copy a second time under a name that
 exists (refused in the code, `Databases::saveCopy`).
 
+## Device test of merging and the sync (Phase 5, 2026-10-08)
+
+Jolla Phone (2026), Sailfish OS 5.2.0.18, the build of `2c06c70`
+installed over 0.2.0, with the Sailjail prompt for `Internet` allowed;
+the maintainer's own Nextcloud and file, test accounts for every change;
+KeePassXC and the Nextcloud desktop client on the computer.
+
+Verified on the device:
+
+- Setting up sync with the browser login: the first attempt ended on
+  Nextcloud's page with "State token does not match"; in a new tab the
+  same login worked and the app reported sync as set up. The settings
+  then held the confirmed configuration and the server's ETag, and the
+  file had its sync entry, with the previous version in the backups.
+- KeePassXC on the computer shows the entry "Nextcloud sync
+  (SailFactor)"; the account list on the phone does not.
+- An account added on the computer and uploaded by the Nextcloud client
+  appears on the phone after unlocking, with its code.
+- An account renamed on the phone reaches the computer.
+- Changing one account on the computer and another on the phone before
+  the phone synced keeps both changes on both sides.
+- "Merge with file" with a copy edited in KeePassXC adds its new entry;
+  "Delete file" removes exactly that copy from Downloads, and the result
+  is synced to Nextcloud.
+
