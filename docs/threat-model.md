@@ -310,8 +310,10 @@ Limits:
   its help page.
 - **Old values stay in the file.** As in KeePassXC, a rename keeps the
   previous names as a history item, and a deleted account sits in the
-  recycle bin, with its secret, until it is deleted there. Backups keep
-  earlier versions until they rotate out.
+  recycle bin, with its secret, until the bin is emptied in the settings
+  or in KeePassXC; emptying records the deletion, so the sync removes it
+  from the other copies too. Backups keep earlier versions until they
+  rotate out.
 
 ## Out of scope
 
