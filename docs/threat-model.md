@@ -1,9 +1,9 @@
 # SailFactor threat model
 
-Status: 2026-10-08, Phase 4 (the app keeps several files, creates them or
-adds them from Documents or Downloads with an optional key file, saves
-copies there, shows codes, adds accounts by QR scan or by typing the
-secret, renames and deletes them). Written before the first device test
+Status: 2026-10-08, Phase 4 (the app keeps one file, creates it or adds
+it from Documents or Downloads with an optional key file, saves a copy
+there, deletes it while unlocked, shows codes, adds accounts by QR scan or
+by typing the secret, renames and deletes them). Written before the first device test
 with real accounts, brought up to date with the Phase 4 security review
 (`security-review-2026-10.md`) and the file features after it. Covers
 the code in this repository at that state. Points marked
@@ -30,8 +30,8 @@ apps, and whoever controls it can wait for both to be unlocked.
 | An account waiting to be added | In the core, from a scan or a typed secret until it is added or dropped; dropped on lock |
 | Codes | Computed in the core; on screen while the list shows; on the clipboard for up to 30 seconds after a copy |
 | Master password | Typed into the unlock page; never stored |
-| The files | `~/.local/share/de.tordenskjold/sailfactor/databases/<name>.kdbx`, owner-only permissions; `settings.ini` in the app's config directory names the chosen file and holds nothing else |
-| Key files | `~/.local/share/de.tordenskjold/sailfactor/keyfiles/<name>.key`, unencrypted, owner-only permissions, only for files added with one; read into RAM during an unlock |
+| The file | `~/.local/share/de.tordenskjold/sailfactor/databases/SailFactor.kdbx`, owner-only permissions |
+| Key file | `~/.local/share/de.tordenskjold/sailfactor/keyfiles/SailFactor.key`, unencrypted, owner-only permissions, only for a file added with one; read into RAM during an unlock |
 | Copies the user saves, originals not yet deleted | Documents or Downloads, encrypted like the file; key files unencrypted |
 | Backups | `~/.local/share/de.tordenskjold/sailfactor/backups/`: the three newest versions the app replaced, encrypted like the file, owner-only like the file |
 | Camera frames | While the scan page is open: the camera stack's buffers, and one copy of the brightness per decoded frame |
@@ -101,7 +101,8 @@ Limits:
 - A key file kept on the phone next to the file adds no protection against
   someone who has the phone's files; it protects a copy that leaves the
   phone without it. For that reason the app adds only files that need a
-  password, so the files on the phone never unlock a file by themselves.
+  password, so the files on the phone never unlock the file by
+  themselves.
 - Backups are protected by the password in effect when they were written;
   re-protecting or deleting them on a password change is planned
   (`PLAN.md`, section 7).
@@ -124,6 +125,9 @@ Protected:
 - Codes are recomputed from the wall clock each second while the list is
   in the foreground, and not at all in the background.
 - Swiping back to the unlock page locks the file.
+- Deleting the file, with its key file and backups, is offered only while
+  the app is unlocked, behind a confirmation, so the master password is
+  needed to remove the accounts.
 
 Limits:
 
@@ -138,7 +142,7 @@ Limits:
 Protected:
 
 - Sailjail isolates the app's memory and private directories from other
-  sandboxed apps; the files, key files and backups live there, so apps with
+  sandboxed apps; the file, its key file and backups live there, so apps with
   the `Documents` or `Downloads` permission can neither read nor replace
   nor delete them. A file from outside is added by unlocking it once; only
   then are the file and the key file that opened it copied in, and the

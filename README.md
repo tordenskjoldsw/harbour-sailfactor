@@ -25,9 +25,9 @@ described below. The full plan is in [PLAN.md](PLAN.md).
   KeePassXC
 - Locks after 2 minutes without use and after 30 seconds in the
   background; every change is saved at once, with three backups
-- Several files; a file from KeePassXC, with or without a key file, is
-  added from Documents or Downloads and kept in the app's private storage;
-  a copy for the computer is saved to Documents or Downloads
+- A file from KeePassXC, with or without a key file, is added from
+  Documents or Downloads and kept in the app's private storage; a copy for
+  the computer is saved to Documents or Downloads
 
 Not yet: sync with Nextcloud. Counter-based codes (HOTP) are not supported. The
 [threat model](docs/threat-model.md) describes what the app protects
