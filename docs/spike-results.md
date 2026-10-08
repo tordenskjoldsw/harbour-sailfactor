@@ -173,3 +173,14 @@ decoding now runs on a worker thread and skips frames while busy.
 
 A login at a real service with a code from SailFactor succeeded
 (verified on the device, 2026-10-08).
+
+## Device test of the security fixes (Phase 4, 2026-10-08)
+
+Jolla Phone (2026), Sailfish OS 5.2.0.18, the fixes from
+`docs/security-review-2026-10.md` installed over 0.1.0 with its test
+file. Verified on the device: a new test code is scanned at once with the
+bounded frame copy; after the first save `backups/` is `drwx------`
+(it was `drwxr-xr-x`; the data directory and `databases/` were already
+owner-only, files and backups 0600); a lock during a save empties the
+list at once; Silica's remorse text shows an issuer as plain text. The
+details are in the review.

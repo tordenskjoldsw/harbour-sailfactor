@@ -27,7 +27,8 @@ Result: no critical, high or medium findings, and no way to read the
 file or a seed without the master password. The low findings are
 hardening of the file layout, the lock during a save and the camera path,
 a compatibility gap in reading unusual secrets, and two C API contract
-points. All findings but one, which needs the device, are fixed.
+points. All findings are fixed, except L9, which the device showed to be
+no problem.
 
 | Severity | Count |
 |----------|-------|
@@ -49,7 +50,7 @@ points. All findings but one, which needs the device, are fixed.
 | L6 secrets with escapes | fixed: only `%3D` and `%20` decoded, anything else unreadable; four tests | `306da75` |
 | L7 C API outputs | fixed: outputs cleared before any other check | `5e2d627` |
 | L8 threading rule | fixed: stated in the header | `46a588a` |
-| L9 remorse text | to verify on the device (see below) | |
+| L9 remorse text | no change needed: Silica shows the issuer as plain text (verified on the device) | |
 | I1 refused frame | fixed with L3 | `11b70a0` |
 | I2 unused clipboard keeper | removed | `5654cbe` |
 | I3 interrupted creation | no change needed | |
@@ -66,7 +67,7 @@ points. All findings but one, which needs the device, are fixed.
 After the fixes: `cargo fmt`, `clippy -D warnings` and `cargo test` pass
 on the host; `sfdk build` and `sfdk check` for aarch64 pass with 0
 rpmlint errors; the rebuilt binary keeps PIE, `BIND_NOW`, `GNU_RELRO` and
-is stripped. The device tests below have not been run yet.
+is stripped. The fixed build passed the device tests below.
 
 ## SailVault's checklist applied to SailFactor
 
@@ -115,10 +116,13 @@ open, but a backup was written with `QFile` under the default umask and
 made owner-only only after the write, through a path that would follow a
 planted symlink. The directories `databases/` and the app's data directory
 were created by `QDir::mkpath` with the default mode; `backups/` too.
-Sailjail keeps other sandboxed apps out of the data directory, so the
-exposure is to unsandboxed same-user processes, which can read anything
-anyway (threat model, attacker 3); the finding is about the stated model
-("owner-only permissions") holding on every path. Fix: backups go through
+On the Jolla Phone the data directory and `databases/` of the 0.1.0
+installation were already owner-only, `backups/` was `drwxr-xr-x`; the
+backups themselves were 0600. Sailjail keeps other sandboxed apps out of
+the data directory, so the exposure is to unsandboxed same-user
+processes, which can read anything anyway (threat model, attacker 3);
+the finding is about the stated model ("owner-only permissions") holding
+on every path. Fix: backups go through
 the same exclusive, owner-only write as the database; the data directory,
 `databases/` and `backups/` are made owner-only when a file is created,
 before every unlock (so installations made by 0.1.0 are tightened) and
@@ -232,9 +236,10 @@ The remorse text "Deleting %1 permanently" goes to Silica's
 rests on the window's `_defaultLabelFormat`, set only when the property
 exists. An issuer from a QR code (threat model, attacker 5) with markup
 could then recolor or hide part of the countdown's text. The property and
-`RemorsePopup`'s label are **unverified** without the Silica sources; the
-check is on the device list below. If the brackets do not show, the fix is
-to keep the issuer out of the remorse text.
+`RemorsePopup`'s label could not be checked without the Silica sources.
+Verified on the device: an account with the issuer `<b>bold</b>` shows
+the issuer with its angle brackets, in the list and in the remorse text.
+No change.
 
 ## Info
 
@@ -288,9 +293,9 @@ to keep the issuer out of the remorse text.
 - I12. The 0.1.0 changelog entry named a wrong weekday ("Wed Oct 08
   2026"), which `rpmbuild` reports as a bogus date. Corrected.
 
-Unverified, to be checked on the device: `QVideoFrame::mappedBytes()` for
-the Jolla Phone's GL texture frames (L3); Silica's `_defaultLabelFormat`
-and `RemorsePopup` (L9); the umask on the device (L1); whether Qt 5.6's
+Unverified: whether `QVideoFrame::mappedBytes()` reports a size for the
+Jolla Phone's GL texture frames (L3; scanning works either way, so the
+check either applies or is skipped); whether Qt 5.6's
 `QDeclarativeVideoOutput` deletes a filter runnable with the item or at
 the next sync (either way it is not run after the item is gone);
 KeePassXC's GUI uses the same code paths as `keepassxc-cli` for TOTP (L6,
@@ -396,21 +401,26 @@ I5).
   error text, notice or test output; the only `printf` is the startup
   timestamp behind `--startup-trace`.
 
-## Device tests to run
+## Device test (2026-10-08)
 
-Before 0.2.0, on the Jolla Phone with a test file (the Phase 3 tests in
-`docs/spike-results.md` stay the regression baseline):
+Jolla Phone (2026), Sailfish OS 5.2.0.18, the build of `b60db69`
+installed over 0.1.0 with its test file, made-up accounts only.
 
-- Scan a QR code after the frame copy was bounded by the mapped size (L3):
-  the code is found as before.
-- Save and lock at once (rename, then Lock in the pulley menu while
-  "Saving" shows): the list empties immediately and the unlock page
-  follows when the save ends; the clipboard is empty.
-- After the first unlock and save of the fixed build: the data
-  directory, `databases/`, `backups/` and the new backup have owner-only
-  permissions (`ls -la` over `sfdk device exec`) (L1).
-- Add an account whose issuer is `<b>bold</b>` and delete it: the remorse
-  text shows the angle brackets (L9). If it renders bold, keep the issuer
-  out of the remorse text.
-- Regression: create, unlock, scan, type in, copy, rename, delete, lock
-  after 30 s in the background, clipboard cleared after 30 s.
+Verified on the device:
+
+- Scanning a new test code from a computer screen: found at once, with
+  issuer, account name and first code in the dialog (L3).
+- Permissions before and after the first save of the fixed build, read
+  with `ls -la` over `sfdk device exec` (L1):
+
+  | Path | 0.1.0 | Fixed build |
+  |------|-------|-------------|
+  | Data directory, `databases/` | `drwx------` | `drwx------` |
+  | `backups/` | `drwxr-xr-x` | `drwx------` |
+  | File and backups | `-rw-------` | `-rw-------` |
+
+  The rotation keeps three backups as before.
+- Locking from the pulley menu right after a rename, while the save ran:
+  the list emptied at once and the unlock page followed (L2).
+- An issuer `<b>bold</b>` shows with its angle brackets in the list and
+  in the remorse text (L9).
