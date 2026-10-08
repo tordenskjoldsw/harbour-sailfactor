@@ -426,5 +426,5 @@ Verified on the device:
   in the remorse text (L9).
 - Regression: renaming and deleting work; the idle lock works; after
   30 seconds in the background the app is locked and the unlock page says
-  "Locked automatically". Copying a code and the clipboard clear were not
-  checked again in this run (verified for 0.1.0 in Phase 3).
+  "Locked automatically"; a copied code pastes in another app and is gone
+  from the clipboard after 30 seconds.
