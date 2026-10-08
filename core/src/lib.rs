@@ -7,6 +7,7 @@
 mod argon2_memory;
 pub mod ffi;
 pub mod kdbx;
+pub mod otp;
 pub mod qr;
 mod random;
 mod secret;
