@@ -8,7 +8,7 @@
 # Usage: tools/diff-sailvault-core.sh [path to SailVault]
 set -euo pipefail
 
-copied_from=fee532f520af389a22e404be49c2f6ed5c158d37
+copied_from=8a9efffe69e6b8157ce82de58e8dbcc30d2bc8de
 root=$(cd "$(dirname "$0")/.." && pwd)
 sailvault=${1:-"$root/../SailVault"}
 paths=(

@@ -116,7 +116,7 @@ holds both apps and both factors.
 |----------|-----------|
 | Rust core as static library, no I/O | Same reasons as SailVault: memory safety for parsing and crypto, `zeroize`, host-testable, nothing for the validator to see |
 | KDBX code copied from SailVault, not shared as a crate | Decided 2026-10-07: both apps stay standalone repositories; a fix in one is ported to the other by hand. The copy is recorded by SailVault commit and file list (section 14), and `tools/diff-sailvault-core.sh` shows the drift |
-| What is copied | `core/src/kdbx/`, `secret.rs`, `random.rs`, `argon2_memory.rs`, the KDBX fixtures with their README, `tools/gen-kdbx-fixtures.sh` and `tools/kdbx-fixtures/`, unchanged from SailVault `fee532f` (2026-10-08). The fixture tests are adapted: the Bitwarden cases are dropped. Not copied: `bitwarden`, `ffi`, `password` (SailFactor has its own slim FFI) |
+| What is copied | `core/src/kdbx/`, `secret.rs`, `random.rs`, `argon2_memory.rs`, the KDBX fixtures with their README, `tools/gen-kdbx-fixtures.sh` and `tools/kdbx-fixtures/`, unchanged from the SailVault commit that `tools/diff-sailvault-core.sh` records (first copied from `fee532f` on 2026-10-08). The fixture tests are adapted: the Bitwarden cases are dropped. Not copied: `bitwarden`, `ffi`, `password` (SailFactor has its own slim FFI) |
 | TOTP on RustCrypto `hmac` with `sha1` and `sha2` | Established crates; `hmac` and `sha2` are already in the copied code, `sha1` is new (MSRV check pending). Test vectors from RFC 6238 appendix B and RFC 4226 appendix D |
 | QR detection with `rqrr` 0.10 in the core | Pure Rust, `(MIT OR Apache-2.0) AND ISC`, MSRV 1.64 (0.11 needs 1.85); without the `img` feature it only pulls `g2p` and `lru` 0.16 (MSRV 1.70). The C++ side hands over a grayscale buffer, so the core keeps its no-I/O rule |
 | Camera through QtMultimedia 5.6 | `QtMultimedia 5.6`, `libQt5Multimedia.so.5` and the Sailjail permission `Camera` are allowed (validator `allowed_permissions.conf` and the Allowed APIs page, checked 2026-10-07). The frame format on the Jolla Phone is unverified until the Phase 1 spike |
@@ -416,9 +416,10 @@ Decided:
   before any data directory exists on a user's phone (a rename after the
   release would move `ApplicationName` and need a migration).
 - Code sharing (2026-10-07): the KDBX code is copied from SailVault, not
-  pulled in as a crate. Copied on 2026-10-08 from SailVault `fee532f`; the
-  file list is in section 5 and in `tools/diff-sailvault-core.sh`, which
-  also records the commit. The fixtures keep SailVault's password, so the
+  pulled in as a crate. First copied on 2026-10-08 from SailVault
+  `fee532f`; the file list is in section 5 and in
+  `tools/diff-sailvault-core.sh`, which records the SailVault commit the
+  copy matches. The fixtures keep SailVault's password, so the
   copy stays byte for byte comparable and the KeePassXC GUI fixtures need
   not be made again. A fix in one app is ported by hand to the other. SailVault's `CLAUDE.md` gets a one-line note that fixes in
   `core/src/kdbx/` also apply to SailFactor (to be added in SailVault
