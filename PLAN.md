@@ -7,7 +7,9 @@ start 506 ms median, `docs/spike-results.md`). Phase 4: the security
 review of 0.1.0 (`docs/security-review-2026-10.md`, no finding above low,
 fixes tested on the device), then adding a file from Documents or
 Downloads with a key file, saving a copy and deleting the file, for the
-one file the app keeps (section 14). Next: Phase 5. The name was
+one file the app keeps (section 14). Phase 5: merging a copy and the
+Nextcloud sync are ported from SailVault and built; next is their device
+test and 0.3.0. The name was
 chosen on 2026-10-07; a dormant GitHub repository `lanurmi/sailfactor` (an
 integer factoring tool, last commit 2014, never in a store) shares it,
 OpenRepos has no match, the Jolla Store was not searchable without an

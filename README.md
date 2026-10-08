@@ -28,8 +28,10 @@ described below. The full plan is in [PLAN.md](PLAN.md).
 - A file from KeePassXC, with or without a key file, is added from
   Documents or Downloads and kept in the app's private storage; a copy for
   the computer is saved to Documents or Downloads
-
-Not yet: sync with Nextcloud. Counter-based codes (HOTP) are not supported. The
+- Sync with your own Nextcloud while the app runs, merged like KeePassXC
+  merges, so changes on the phone and on the computer both survive; or
+  merge a copy by hand
+ Counter-based codes (HOTP) are not supported. The
 [threat model](docs/threat-model.md) describes what the app protects
 against and where its limits are.
 
