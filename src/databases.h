@@ -3,12 +3,12 @@
 
 #include <QObject>
 #include <QString>
-#include <QStringList>
 
-// The authenticator files in the app's private data directory, which
-// Sailjail keeps from other sandboxed apps. A file is known by its name:
-// databases/<name>.kdbx, its key file, if it has one, keyfiles/<name>.key,
-// and its backups in backups/.
+// The authenticator file in the app's private data directory, which
+// Sailjail keeps from other sandboxed apps: databases/<name>.kdbx, its key
+// file, if it has one, keyfiles/<name>.key, and its backups in backups/.
+// The app keeps one file, under DefaultName; the paths take a name so the
+// layout stays SailVault's.
 class Databases : public QObject
 {
     Q_OBJECT
@@ -32,8 +32,7 @@ public:
 
     explicit Databases(QObject *parent = nullptr);
 
-    // The name a new file gets unless the user chooses another; also the
-    // name of the one file versions before 0.2.0 kept.
+    // The name of the app's one file, as in 0.1.0.
     static const QString DefaultName;
     QString defaultName() const;
 
@@ -56,8 +55,6 @@ public:
     Q_INVOKABLE static bool isValidName(const QString &name);
     Q_INVOKABLE static bool exists(const QString &name);
     Q_INVOKABLE static bool hasKeyFile(const QString &name);
-    // Sorted ignoring case.
-    Q_INVOKABLE static QStringList names();
 
     // The path of a copy named fileName.kdbx in location, or empty when
     // fileName is not a valid name. Its key file goes next to it as

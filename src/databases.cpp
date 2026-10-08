@@ -1,6 +1,5 @@
 #include "databases.h"
 
-#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QStandardPaths>
@@ -51,7 +50,8 @@ int copyFile(const QString &from, const QString &to, qint64 maxBytes)
 
 } // namespace
 
-// Also the database name inside a new file, which KeePassXC shows.
+// Also the database name inside a file created here, which KeePassXC
+// shows.
 const QString Databases::DefaultName = QStringLiteral("SailFactor");
 
 Databases::Databases(QObject *parent)
@@ -116,20 +116,6 @@ bool Databases::exists(const QString &name)
 bool Databases::hasKeyFile(const QString &name)
 {
     return isValidName(name) && QFileInfo::exists(keyFilePath(name));
-}
-
-QStringList Databases::names()
-{
-    QStringList result;
-    const QStringList files = QDir(databaseDirectory())
-                                  .entryList(QStringList(QLatin1Char('*') + DatabaseSuffix),
-                                             QDir::Files, QDir::Name | QDir::IgnoreCase);
-    for (const QString &file : files) {
-        const QString name = file.left(file.size() - DatabaseSuffix.size());
-        if (isValidName(name))
-            result.append(name);
-    }
-    return result;
 }
 
 QString Databases::copyPath(int location, const QString &fileName)
