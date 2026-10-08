@@ -249,3 +249,27 @@ Verified on the device:
   "Delete file" removes exactly that copy from Downloads, and the result
   is synced to Nextcloud.
 
+## Device test of the password warnings and the recycle bin (Phase 5, 2026-10-08)
+
+Jolla Phone (2026), Sailfish OS 5.2.0.18, the maintainer's file with
+sync on; the test file was the fixture `kdbx4-aes-aeskdf.kdbx`
+(made-up logins, its own master password).
+
+Verified on the device:
+
+- Merging the test file asked for its master password, then warned
+  before merging: one password without a one-time code and one login
+  entry with a password next to its code, the entry in the test file's
+  recycle bin not counted. "Cancel" left the file unchanged (no save, no
+  backup). The first build showed "1 password(s)"; the counts now follow
+  a label (`bb51774`).
+- "Merge anyway" with the first build reported "Added: 6" while the list
+  showed four new entries, because the core counts groups too; the
+  summary now names new and removed accounts (`71ce644`). Deleting the
+  four entries moved them to the hidden recycle bin.
+- "Empty recycle bin" in the settings removed them for good; the file on
+  the phone shrank to 2677 bytes and the sync uploaded it.
+
+Not seen on the device: the reworded merge summary and the warning
+texts after `bb51774`.
+
