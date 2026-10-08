@@ -123,11 +123,16 @@ holds both apps and both factors.
 | Storage format: KDBX4, one entry per account | Title = issuer, UserName = account, attribute `otp` = the `otpauth://totp/` URI exactly as KeePassXC writes it; `Password` stays empty. KeePassXC shows the same codes, which is criterion 4 |
 | Secrets never cross the FFI | QML receives the code for the current step and the remaining seconds, never the seed. The seed is shown only on an explicit "show secret" or "show as QR" action (Phase 7), behind a confirmation |
 
-Legacy attribute forms that KeePassXC reads (`Totp.h`, checked
-2026-10-07): `TOTP Seed` with `TOTP Settings` (`step;digits` or
-`step;S`), and KeePass 2's `TimeOtp-Secret-Base32`, `TimeOtp-Algorithm`,
-`TimeOtp-Length`, `TimeOtp-Period`. SailFactor reads all of them and
-writes only the `otp` URI, as KeePassXC does when it saves settings.
+Attribute forms that KeePassXC reads, in its order (`Totp.cpp`,
+`Entry::updateTotp`, checked 2026-10-08): `TOTP Settings` (`step;digits`,
+`step;S`, or a URI) with `TOTP Seed`; then `otp` as an `otpauth://` URI
+or in KeeOtp's `key=...&size=...&step=...&otpHashMode=...` form; then
+KeePass 2's `TimeOtp-Secret-Base32`, `TimeOtp-Algorithm`,
+`TimeOtp-Length`, `TimeOtp-Period`. SailFactor reads all of them the same
+way and writes only the `otp` URI, as KeePassXC does when it saves
+settings. Two deliberate deviations: KeePassXC shows a TOTP code for a
+`hotp` URI, SailFactor reports it as not supported; a Steam URI without
+`digits` gets Steam's five characters, where KeePassXC shows six.
 
 ## 6. Unlock design
 
@@ -211,7 +216,9 @@ KeePassXC on the PC.
   (SHA-1 default, SHA-256, SHA-512), digits (6 default, 1-10 as in
   KeePassXC), period (30 s default), Steam
 - Every parsed URI is validated with bounds before it reaches the model:
-  secret length, digits 1-10, period 1-3600 s, URI length, parameter count
+  URI and attribute length (2048 bytes), 32 query parameters, a secret of
+  at most 512 bytes, digits 1-10 and period 1-86400 s, the ranges
+  KeePassXC applies, so a file shows the same codes in both apps
 - The first code is shown before the entry is saved, so the user can check
   it against the service's confirmation step
 
