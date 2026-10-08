@@ -11,11 +11,11 @@ use super::layout::{element, is_element, text};
 use super::tree::{descend_mut, entry_path};
 use super::xml::{Element, Node};
 
-const MARKER_KEY: &str = "SailVault/Sync";
+const MARKER_KEY: &str = "SailFactor/Sync";
 const MARKER_VALUE: &str = "Nextcloud";
-pub const SYNC_TITLE: &str = "Nextcloud sync (SailVault)";
-const PATH_KEY: &str = "SailVault sync path";
-const CERTIFICATE_KEY: &str = "SailVault sync certificate";
+pub const SYNC_TITLE: &str = "Nextcloud sync (SailFactor)";
+const PATH_KEY: &str = "SailFactor sync path";
+const CERTIFICATE_KEY: &str = "SailFactor sync certificate";
 
 /// Where and how the database syncs: the Nextcloud server URL, the login
 /// name and app password, the file's path in the user's files, and the

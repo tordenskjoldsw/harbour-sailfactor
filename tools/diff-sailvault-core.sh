@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Checks the code copied from SailVault (PLAN.md section 5). Fails when a
-# copied file differs from SailVault at the commit it was copied from, or
-# when SailVault changed one of these files after that commit. After
+# copied file differs from SailVault at the commit it was copied from, with
+# SailFactor's deliberate deviations in tools/sailvault-core.patch applied,
+# or when SailVault changed one of these files after that commit. After
 # porting such a change, set copied_from to the SailVault commit it came
 # from.
 #
@@ -32,12 +33,20 @@ paths=(
 
 drift=0
 copied=$(git -C "$sailvault" ls-tree -r --name-only "$copied_from" -- "${paths[@]}")
+expected=$(mktemp -d)
+trap 'rm -rf "$expected"' EXIT
+git -C "$sailvault" archive "$copied_from" -- "${paths[@]}" | tar -x -C "$expected"
+if ! patch --quiet --batch --forward -p1 -d "$expected" <"$root/tools/sailvault-core.patch" \
+    >/dev/null; then
+    echo "tools/sailvault-core.patch no longer applies to SailVault ${copied_from:0:7}"
+    drift=1
+fi
 for file in $copied; do
     if [[ ! -f "$root/$file" ]]; then
         echo "missing here: $file"
         drift=1
-    elif ! git -C "$sailvault" show "$copied_from:$file" | cmp -s - "$root/$file"; then
-        echo "differs from SailVault ${copied_from:0:7}: $file"
+    elif ! cmp -s "$expected/$file" "$root/$file"; then
+        echo "differs from SailVault ${copied_from:0:7} and the recorded deviations: $file"
         drift=1
     fi
 done
@@ -56,6 +65,6 @@ if [[ -n $changed ]]; then
 fi
 
 if ((drift == 0)); then
-    echo "copy matches SailVault ${copied_from:0:7}, no newer changes"
+    echo "copy matches SailVault ${copied_from:0:7} with the recorded deviations, no newer changes"
 fi
 exit "$drift"
