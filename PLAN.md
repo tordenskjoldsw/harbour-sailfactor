@@ -390,35 +390,30 @@ growing the feature set.
 
 Open:
 
-- **Unlock for daily use.** Options: (a) full master password every time,
-  like SailVault; (b) opt-in quick unlock in RAM only, as SailVault's plan
-  describes it for Phase 7: after a full unlock the derived key stays in
-  the core while the app lives, a short PIN reopens, one wrong attempt, a
-  time limit or quitting the app wipes the key. Proposal: ship (a) in
-  Phase 3 and decide (b) after the first weeks of daily use; the
-  measurement that matters is how often the app is actually quit by the
-  system between uses. Never (c): anything on disk.
-- **KDF level for a new file.** SailVault's Standard level (Argon2id, 256
-  MiB, 3 iterations, about 1 s on the Jolla Phone) protects a file that
-  is opened a few times a day. An authenticator is opened more often.
-  Options: keep the same three levels with Standard as default, or add a
-  lower "Daily" level at RFC 9106's second recommendation (64 MiB, 3
-  iterations, about 0.25 s measured in SailVault's Phase 2). Proposal:
-  keep SailVault's levels and default; the seed file deserves the same
-  protection as the vault, and the quick unlock question above is the
-  right place to buy convenience.
 - **Clock warning.** TOTP fails silently with a wrong clock. Options: a
   note on the code list when the phone's clock is not set automatically
   (readable from `timed` only through D-Bus, probably not allowed), or a
   help text reachable from the list. Proposal: help text and a "my code is
   rejected" page in Phase 3; a clock check only if a Harbour-allowed way
   is found.
-- **Steam codes in v1.** Cheap to generate (5 characters from KeePassXC's
-  alphabet). Proposal: yes, in Phase 2, so a file with Steam entries
-  behaves the same in both apps.
+- **Quick unlock** (Phase 7 at the earliest): opt-in, in RAM only, as
+  SailVault's plan describes it: after a full unlock the derived key stays
+  in the core while the app lives, a short PIN reopens, one wrong attempt,
+  a time limit or quitting the app wipes the key. Decided after the first
+  weeks of daily use; the measurement that matters is how often the
+  system quits the app between uses. Never anything on disk.
 
 Decided:
 
+- Unlock for daily use (2026-10-08): the full master password (and key
+  file) every time, as in SailVault, for Phase 3 and the first release.
+  Quick unlock stays open above.
+- KDF level for a new file (2026-10-08): SailVault's three levels with
+  Standard as the default (Argon2id, 256 MiB, 3 iterations, about 1 s on
+  the Jolla Phone). The seed file gets the same protection as the vault;
+  no lower "Daily" level.
+- Steam codes (2026-10-08): in v1, built in Phase 2, so a file with Steam
+  entries behaves the same in both apps.
 - Name (2026-10-07): SailFactor, package `harbour-sailfactor`,
   `OrganizationName=de.tordenskjold`, `ApplicationName=sailfactor`.
   Known collision: a dormant GitHub hobby project from 2014 with the same
