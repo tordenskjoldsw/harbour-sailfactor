@@ -4,5 +4,9 @@
 
 #![deny(unsafe_op_in_unsafe_fn)]
 
+mod argon2_memory;
 pub mod ffi;
+pub mod kdbx;
 pub mod qr;
+mod random;
+mod secret;
