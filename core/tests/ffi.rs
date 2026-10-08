@@ -8,18 +8,21 @@ use sailfactor_core::ffi::accounts::{
     sf_account_rename,
 };
 use sailfactor_core::ffi::database::{
-    sf_database_create, sf_database_free, sf_database_from_kdbx3, sf_database_open,
-    sf_database_save, sf_database_set_kdf_level, sf_kdbx_version,
+    sf_database_create, sf_database_free, sf_database_from_kdbx3, sf_database_merge,
+    sf_database_open, sf_database_open_like, sf_database_save, sf_database_set_kdf_level,
+    sf_kdbx_version,
 };
 use sailfactor_core::ffi::pending::{
     sf_pending_code, sf_pending_free, sf_pending_from_secret, sf_pending_from_uri, sf_pending_text,
 };
+use sailfactor_core::ffi::sync::{sf_database_set_sync_settings, sf_database_sync_setting};
 use sailfactor_core::ffi::{
-    sf_bytes_free, sf_string_free, SfAccountList, SfBytes, SfDatabase, SfPending, SfString,
-    SF_ALGORITHM_SHA256, SF_ENCODER_DECIMAL, SF_ENCODER_STEAM, SF_HOTP, SF_INVALID_ARGUMENT,
-    SF_INVALID_CREDENTIALS, SF_INVALID_SECRET, SF_INVALID_SETTINGS, SF_KDF_STANDARD, SF_KIND_HOTP,
-    SF_KIND_NO_CODE, SF_KIND_TOTP, SF_NOT_FOUND, SF_NOT_KDBX, SF_NOT_OTPAUTH, SF_NO_CODE, SF_OK,
-    SF_TEXT_ISSUER, SF_TEXT_NAME, SF_UUID_LENGTH,
+    sf_bytes_free, sf_string_free, SfAccountList, SfBytes, SfDatabase, SfMergeChanges, SfPending,
+    SfString, SF_ALGORITHM_SHA256, SF_ENCODER_DECIMAL, SF_ENCODER_STEAM, SF_HOTP,
+    SF_INVALID_ARGUMENT, SF_INVALID_CREDENTIALS, SF_INVALID_SECRET, SF_INVALID_SETTINGS,
+    SF_KDF_STANDARD, SF_KIND_HOTP, SF_KIND_NO_CODE, SF_KIND_TOTP, SF_NOT_FOUND, SF_NOT_KDBX,
+    SF_NOT_OTPAUTH, SF_NO_CODE, SF_OK, SF_SYNC_APP_PASSWORD, SF_SYNC_CERTIFICATE, SF_SYNC_PATH,
+    SF_SYNC_SERVER, SF_SYNC_USER, SF_TEXT_ISSUER, SF_TEXT_NAME, SF_UUID_LENGTH,
 };
 
 const FIXTURE: &[u8] = include_bytes!("fixtures/totp-entries.kdbx");
@@ -446,4 +449,117 @@ fn a_kdbx3_file_is_saved_as_kdbx4_with_argon2id() {
     assert!(!from_kdbx3(reopened));
     // SAFETY: the handle is freed once.
     unsafe { sf_database_free(reopened) };
+}
+
+#[test]
+fn another_copy_opens_with_the_held_key_and_merges() {
+    let database = open(FIXTURE, PASSWORD).unwrap();
+    let mut copy = ptr::null_mut();
+    // SAFETY: database is live; the inputs are live slices; copy is a local.
+    unsafe {
+        assert_eq!(
+            sf_database_open_like(database, b"no".as_ptr(), 2, &mut copy),
+            SF_NOT_KDBX
+        );
+        assert!(copy.is_null());
+        assert_eq!(
+            sf_database_open_like(database, FIXTURE.as_ptr(), FIXTURE.len(), &mut copy),
+            SF_OK
+        );
+    }
+    let mut changes = SfMergeChanges {
+        added: 9,
+        modified: 9,
+        moved: 9,
+        deleted: 9,
+        metadata: true,
+    };
+    // SAFETY: both handles are live and used by this thread only.
+    assert_eq!(
+        unsafe { sf_database_merge(database, copy, &mut changes) },
+        SF_OK
+    );
+    assert_eq!(
+        changes,
+        SfMergeChanges::default(),
+        "an identical copy changes nothing"
+    );
+    // SAFETY: as above; merging a handle into itself is refused.
+    assert_eq!(
+        unsafe { sf_database_merge(database, database, &mut changes) },
+        SF_INVALID_ARGUMENT
+    );
+    // SAFETY: each is freed once.
+    unsafe {
+        sf_database_free(copy);
+        sf_database_free(database);
+    }
+}
+
+#[test]
+fn sync_settings_round_trip_and_stay_out_of_the_account_list() {
+    let database = open(FIXTURE, PASSWORD).unwrap();
+    let accounts = rows(database).len();
+    let mut value = SfString::EMPTY;
+    // SAFETY: database is live; value is a local.
+    assert_eq!(
+        unsafe { sf_database_sync_setting(database, SF_SYNC_SERVER, &mut value) },
+        SF_NOT_FOUND
+    );
+    let fields = [
+        "https://cloud.example.org",
+        "alice",
+        "app-password",
+        "/SailFactor/SailFactor.kdbx",
+    ];
+    let mut uuid = [7u8; SF_UUID_LENGTH];
+    // SAFETY: every string is a live slice; database is used by this thread
+    // only; uuid is a local of 16 bytes.
+    let status = unsafe {
+        sf_database_set_sync_settings(
+            database,
+            fields[0].as_ptr(),
+            fields[0].len(),
+            fields[1].as_ptr(),
+            fields[1].len(),
+            fields[2].as_ptr(),
+            fields[2].len(),
+            fields[3].as_ptr(),
+            fields[3].len(),
+            ptr::null(),
+            0,
+            NOW,
+            uuid.as_mut_ptr(),
+        )
+    };
+    assert_eq!(status, SF_OK);
+    assert_ne!(uuid, [0u8; SF_UUID_LENGTH]);
+    for (setting, expected) in [
+        (SF_SYNC_SERVER, fields[0]),
+        (SF_SYNC_USER, fields[1]),
+        (SF_SYNC_APP_PASSWORD, fields[2]),
+        (SF_SYNC_PATH, fields[3]),
+        (SF_SYNC_CERTIFICATE, ""),
+    ] {
+        let mut value = SfString::EMPTY;
+        // SAFETY: as above.
+        assert_eq!(
+            unsafe { sf_database_sync_setting(database, setting, &mut value) },
+            SF_OK
+        );
+        assert_eq!(take(value), expected);
+    }
+    // SAFETY: as above.
+    assert_eq!(
+        unsafe { sf_database_sync_setting(database, 9, &mut value) },
+        SF_INVALID_ARGUMENT
+    );
+    assert_eq!(
+        rows(database).len(),
+        accounts,
+        "the sync entry is no account"
+    );
+    assert!(rows(database).iter().all(|row| row.uuid != uuid));
+    // SAFETY: the handle is freed once.
+    unsafe { sf_database_free(database) };
 }

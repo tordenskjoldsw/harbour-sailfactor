@@ -50,6 +50,14 @@ extern "C" {
 #define SF_ENCODER_DECIMAL 0u
 #define SF_ENCODER_STEAM 1u
 
+/* Nextcloud sync settings, kept in an entry of the file. */
+#define SF_SYNC_SERVER 0u
+#define SF_SYNC_USER 1u
+#define SF_SYNC_APP_PASSWORD 2u
+#define SF_SYNC_PATH 3u
+/* SHA-256 fingerprint of a pinned self-signed certificate, or empty. */
+#define SF_SYNC_CERTIFICATE 4u
+
 #define SF_KDF_STANDARD 0u
 #define SF_KDF_HIGH 1u
 #define SF_KDF_MAXIMUM 2u
@@ -73,6 +81,15 @@ typedef struct SfBytes {
     uint8_t *data;
     size_t length;
 } SfBytes;
+
+/* What sf_database_merge changed. */
+typedef struct SfMergeChanges {
+    size_t added;
+    size_t modified;
+    size_t moved;
+    size_t deleted;
+    bool metadata;
+} SfMergeChanges;
 
 /* The core's version; a static NUL-terminated string, never freed. */
 const char *sf_core_version(void);
@@ -102,6 +119,27 @@ int32_t sf_database_save(const SfDatabase *database, SfBytes *out);
 int32_t sf_database_from_kdbx3(const SfDatabase *database, bool *from_kdbx3);
 /* Argon2id at SF_KDF_* from the next save on. */
 int32_t sf_database_set_kdf_level(SfDatabase *database, uint32_t level);
+/* Opens another copy of the file with the credentials like was unlocked
+ * with; they never leave the core. Runs the KDF; call off the UI thread
+ * while nothing modifies like. */
+int32_t sf_database_open_like(const SfDatabase *like, const uint8_t *data, size_t data_length,
+                              SfDatabase **out);
+/* Merges another copy into database as KeePassXC does, and applies
+ * deletions recorded in either copy unless the item changed later.
+ * Nothing changes on an error. */
+int32_t sf_database_merge(SfDatabase *database, const SfDatabase *source, SfMergeChanges *out);
+/* One SF_SYNC_* setting; SF_NOT_FOUND when the file has no sync entry. */
+int32_t sf_database_sync_setting(const SfDatabase *database, uint32_t setting, SfString *out);
+/* Stores the settings (UTF-8 each) in the sync entry, created in the root
+ * group when missing; uuid_out receives its 16-byte UUID. In memory until
+ * the next sf_database_save. The sync entry is not listed as an account. */
+int32_t sf_database_set_sync_settings(SfDatabase *database, const uint8_t *server,
+                                      size_t server_length, const uint8_t *user,
+                                      size_t user_length, const uint8_t *app_password,
+                                      size_t app_password_length, const uint8_t *path,
+                                      size_t path_length, const uint8_t *certificate,
+                                      size_t certificate_length, int64_t now,
+                                      uint8_t *uuid_out);
 void sf_database_free(SfDatabase *database);
 
 /*

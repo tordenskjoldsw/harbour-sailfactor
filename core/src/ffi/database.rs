@@ -1,8 +1,8 @@
 //! Opening, creating, saving and locking an authenticator file.
 
 use super::{
-    bytes, kdbx_status, utf8, SfBytes, SfDatabase, SF_INVALID_ARGUMENT, SF_KDF_HIGH,
-    SF_KDF_MAXIMUM, SF_KDF_STANDARD, SF_OK,
+    bytes, kdbx_status, utf8, SfBytes, SfDatabase, SfMergeChanges, SF_INVALID_ARGUMENT,
+    SF_KDF_HIGH, SF_KDF_MAXIMUM, SF_KDF_STANDARD, SF_OK,
 };
 use crate::kdbx::{self, CompositeKey, Database, KdfLevel};
 
@@ -206,6 +206,84 @@ pub unsafe extern "C" fn sf_database_save(database: *const SfDatabase, out: *mut
     match database.database.save() {
         Ok(file) => {
             *out = SfBytes::new(file);
+            SF_OK
+        }
+        Err(error) => kdbx_status(error),
+    }
+}
+
+/// Opens another copy of the file, such as a download from Nextcloud or the
+/// file from the computer, with the credentials `like` was unlocked with;
+/// they never leave the core. Runs the KDF: call it off the UI thread.
+///
+/// # Safety
+///
+/// `like` must be a live handle that no thread modifies meanwhile; `data`
+/// null or valid for reads of `data_length` bytes; `out` valid for one
+/// write. Release the result with `sf_database_free`.
+#[no_mangle]
+pub unsafe extern "C" fn sf_database_open_like(
+    like: *const SfDatabase,
+    data: *const u8,
+    data_length: usize,
+    out: *mut *mut SfDatabase,
+) -> i32 {
+    // SAFETY: the caller guarantees the pointers as documented.
+    let Some(out) = (unsafe { out.as_mut() }) else {
+        return SF_INVALID_ARGUMENT;
+    };
+    *out = std::ptr::null_mut();
+    // SAFETY: as above.
+    let (Some(like), Some(data)) = (unsafe { like.as_ref() }, unsafe {
+        bytes(data, data_length)
+    }) else {
+        return SF_INVALID_ARGUMENT;
+    };
+    match like.database.open_like(data) {
+        Ok(database) => {
+            *out = Box::into_raw(Box::new(SfDatabase { database }));
+            SF_OK
+        }
+        Err(error) => kdbx_status(error),
+    }
+}
+
+/// Merges another copy of the file into `database` as KeePassXC does, and
+/// applies deletions recorded in either copy unless the item changed later.
+/// Nothing changes on an error.
+///
+/// # Safety
+///
+/// `database` must be a live handle no other thread uses; `source` a live
+/// handle; `out` valid for one write.
+#[no_mangle]
+pub unsafe extern "C" fn sf_database_merge(
+    database: *mut SfDatabase,
+    source: *const SfDatabase,
+    out: *mut SfMergeChanges,
+) -> i32 {
+    // SAFETY: the caller guarantees the pointers as documented.
+    let Some(out) = (unsafe { out.as_mut() }) else {
+        return SF_INVALID_ARGUMENT;
+    };
+    *out = SfMergeChanges::default();
+    if std::ptr::eq(database, source) {
+        return SF_INVALID_ARGUMENT;
+    }
+    // SAFETY: as above; the two handles differ.
+    let (Some(database), Some(source)) = (unsafe { database.as_mut() }, unsafe { source.as_ref() })
+    else {
+        return SF_INVALID_ARGUMENT;
+    };
+    match database.database.merge_from(&source.database) {
+        Ok(changes) => {
+            *out = SfMergeChanges {
+                added: changes.added,
+                modified: changes.modified,
+                moved: changes.moved,
+                deleted: changes.deleted,
+                metadata: changes.metadata,
+            };
             SF_OK
         }
         Err(error) => kdbx_status(error),

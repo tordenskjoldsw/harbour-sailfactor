@@ -2,7 +2,8 @@
 //! account is an entry outside the recycle bin: its title names the issuer,
 //! its user name the account, and its attributes hold the TOTP settings as
 //! KeePassXC stores them. Entries without settings are listed too, so
-//! nothing in a file shared with KeePassXC is hidden.
+//! nothing in a file shared with KeePassXC is hidden, except the entry that
+//! holds the Nextcloud sync settings, which the settings page shows.
 
 use zeroize::Zeroizing;
 
@@ -71,11 +72,12 @@ impl From<OtpError> for AccountError {
 /// The accounts in document order, without the recycle bin.
 pub fn list(database: &Database) -> Result<Vec<Account>, KdbxError> {
     let mut accounts = Vec::new();
+    let sync_entry = database.sync_entry();
     for listed in database.entries()? {
         let Some(uuid) = listed.entry.uuid() else {
             continue;
         };
-        if database.in_recycle_bin(&uuid)? {
+        if Some(uuid) == sync_entry || database.in_recycle_bin(&uuid)? {
             continue;
         }
         let kind = match entry_settings(&listed.entry) {

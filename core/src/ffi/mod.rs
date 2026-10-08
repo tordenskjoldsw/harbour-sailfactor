@@ -8,6 +8,7 @@
 pub mod accounts;
 pub mod database;
 pub mod pending;
+pub mod sync;
 
 use std::ffi::c_char;
 use std::{ptr, slice};
@@ -51,6 +52,12 @@ pub const SF_ALGORITHM_SHA512: u32 = 2;
 
 pub const SF_ENCODER_DECIMAL: u32 = 0;
 pub const SF_ENCODER_STEAM: u32 = 1;
+
+pub const SF_SYNC_SERVER: u32 = 0;
+pub const SF_SYNC_USER: u32 = 1;
+pub const SF_SYNC_APP_PASSWORD: u32 = 2;
+pub const SF_SYNC_PATH: u32 = 3;
+pub const SF_SYNC_CERTIFICATE: u32 = 4;
 
 pub const SF_KDF_STANDARD: u32 = 0;
 pub const SF_KDF_HIGH: u32 = 1;
@@ -107,6 +114,17 @@ impl SfString {
         let data = Box::into_raw(Box::<[u8]>::from(text.as_bytes())).cast::<u8>();
         Self { data, length }
     }
+}
+
+/// What `sf_database_merge` changed.
+#[repr(C)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct SfMergeChanges {
+    pub added: usize,
+    pub modified: usize,
+    pub moved: usize,
+    pub deleted: usize,
+    pub metadata: bool,
 }
 
 /// A serialized database file; release it with `sf_bytes_free`.
