@@ -1,0 +1,8 @@
+* Wed Oct 08 2026 Tobias Kaminski <instance_maintainer@protonmail.com> - 0.1.0-1
+- First release: TOTP codes in an encrypted KeePass-compatible file of
+  their own, apart from the password manager
+- Add accounts by scanning a QR code or by typing the secret
+- Same codes as KeePassXC for SHA-1, SHA-256, SHA-512 and Steam Guard
+- Copy with a tap; the clipboard is cleared after 30 seconds
+- Locks after 2 minutes without use and 30 seconds in the background;
+  every change is saved with three backups
