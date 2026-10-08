@@ -1,9 +1,10 @@
 # SailFactor threat model
 
-Status: 2026-10-08, Phase 4 (the app keeps one file, creates it or adds
+Status: 2026-10-08, Phase 5 (the app keeps one file, creates it or adds
 it from Documents or Downloads with an optional key file, saves a copy
-there, deletes it while unlocked, shows codes, adds accounts by QR scan or
-by typing the secret, renames and deletes them). Written before the first device test
+there, deletes it while unlocked, merges another copy, syncs it with
+Nextcloud, shows codes, adds accounts by QR scan or by typing the secret,
+renames and deletes them). Written before the first device test
 with real accounts, brought up to date with the Phase 4 security review
 (`security-review-2026-10.md`) and the file features after it. Covers
 the code in this repository at that state. Points marked
@@ -32,7 +33,10 @@ apps, and whoever controls it can wait for both to be unlocked.
 | Master password | Typed into the unlock page; never stored |
 | The file | `~/.local/share/de.tordenskjold/sailfactor/databases/SailFactor.kdbx`, owner-only permissions |
 | Key file | `~/.local/share/de.tordenskjold/sailfactor/keyfiles/SailFactor.key`, unencrypted, owner-only permissions, only for a file added with one; read into RAM during an unlock |
-| Copies the user saves, originals not yet deleted | Documents or Downloads, encrypted like the file; key files unencrypted |
+| Copies the user saves, originals not yet deleted, copies merged in | Documents or Downloads, encrypted like the file; key files unencrypted |
+| ETag and file digest of the last sync, digest of the confirmed sync configuration | `~/.config/de.tordenskjold/sailfactor/settings.ini` (no secrets); dropped when the file is deleted |
+| Nextcloud app password, server, login name, path, pinned certificate | An entry of the file, encrypted like every entry and not shown in the account list; in RAM while a sync runs, also in Qt buffers that cannot be wiped |
+| Copy of the file on Nextcloud | The user's Nextcloud, encrypted like the file |
 | Backups | `~/.local/share/de.tordenskjold/sailfactor/backups/`: the three newest versions the app replaced, encrypted like the file, owner-only like the file |
 | Camera frames | While the scan page is open: the camera stack's buffers, and one copy of the brightness per decoded frame |
 
@@ -69,8 +73,8 @@ Rust core                 KDBX4 parsing and writing, KDF, encryption, TOTP,
 - The app runs in the Sailjail sandbox with the permissions `Camera`, used
   only on the scan page, and `Documents` and `Downloads`, used only to read
   a file and key file the user picks, to save a copy under a name the user
-  gives, and to delete the originals of an added file when asked. It has
-  no network access.
+  gives, and to delete the originals of an added file or a merged copy when
+  asked; and `Internet`, used only by the Nextcloud sync.
 
 ## Attackers and protections
 
@@ -208,9 +212,60 @@ Limits:
 
 ### 6. Network attacker and the Nextcloud server
 
-Not applicable yet: the app has no network access until Nextcloud sync
-(Phase 5) adds the `Internet` permission. This section will follow
-SailVault's.
+The sync is SailVault's (`src/nextcloud.*`, `src/sync.*`), whose behavior
+toward the server was checked on the device for SailVault 0.5.x.
+
+Protected:
+
+- Requests go over https only, through Qt and OpenSSL with the certificates
+  the system trusts. A self-signed certificate is accepted only after the
+  user confirmed its SHA-256 fingerprint, and then only exactly that
+  certificate, for the errors a self-signed certificate raises; a changed
+  pinned certificate stops the sync with a warning. Certificate errors are
+  never ignored otherwise.
+- Redirects are not followed, since Qt 5.6 would send the credentials to
+  any redirect target; cookies are not kept.
+- The app password is sent as Basic auth on each request and never logged.
+  The Login Flow v2 poll token, which yields the app password, goes only to
+  the server the user entered, and the flow is refused if the server
+  points its poll or login address elsewhere.
+- A sync configuration runs only once it is confirmed on this device: the
+  settings keep a SHA-256 digest of server, login name, path and pinned
+  certificate (not the password). Setting sync up on the phone confirms it;
+  a configuration that arrived any other way, such as in a file added from
+  another device, sends nothing until the user accepted a dialog showing
+  the server. Entries merged from a file unlocked with other credentials
+  lose the sync marker, so such a file cannot redirect the sync.
+- Nextcloud only receives the encrypted KDBX file. A downloaded file is
+  untrusted input with the reader's bounds, and it is merged only if it
+  opens with the credentials of the open file. An older file served again
+  merges without removing newer changes.
+- What the last sync knew (ETag, digest, confirmation) is dropped when the
+  file is deleted, so a file added afterwards is merged with the copy on
+  Nextcloud before anything is uploaded, never uploaded over it.
+- The setup page asks for a Nextcloud login that does not need a code from
+  this file, and recommends an app password: after a lost phone, the copy
+  on Nextcloud and KeePassXC on a computer are the way back to the codes.
+
+Limits:
+
+- A Nextcloud app password opens all files of the account, not only this
+  file. Anyone who can open the file sees it in the sync entry, also in
+  copies on the computer and on the server; it can be revoked in
+  Nextcloud.
+- The server, its admin or anyone who breaks into it gets the encrypted
+  file and can guess master passwords offline; the KDF parameters decide
+  the cost. File size and sync times are visible to the server.
+- A user who confirms a wrong fingerprint lets an attacker in the middle
+  read the app password and the encrypted file.
+- The app password exists in Qt buffers during a sync and cannot be wiped
+  there, like other Qt strings.
+- Deletions from the other copy are applied when the item did not change
+  afterwards; a server that serves a file with forged deletion records
+  could only do so with the credentials of the file.
+- The sync entry keeps the title "Nextcloud sync (SailVault)" and marker of
+  the KDBX code copied from SailVault, so KeePassXC shows it under that
+  name.
 
 ## Known limits of the implementation
 
@@ -260,7 +315,6 @@ SailVault's.
 
 ## Changes in later phases
 
-- Phase 5: Nextcloud sync and the `Internet` permission (section 6).
 - A quick unlock (Phase 7 at the earliest, opt-in, RAM only) would add a
   section here.
 
