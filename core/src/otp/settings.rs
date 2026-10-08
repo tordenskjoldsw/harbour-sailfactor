@@ -161,7 +161,8 @@ fn parse_stored(value: &str, seed: &str) -> Result<TotpSettings, OtpError> {
         return Query::parse(parts.query)?.otpauth_settings();
     }
     let query = Query::parse(value)?;
-    if let Some(key) = query.value("key") {
+    if query.has("key") {
+        let key = query.secret("key")?;
         return clamped(
             &key,
             query.algorithm("otpHashMode"),
@@ -300,13 +301,46 @@ impl<'a> Query<'a> {
         Ok(Self { items })
     }
 
-    fn value(&self, name: &str) -> Option<Zeroizing<String>> {
+    fn has(&self, name: &str) -> bool {
+        self.items.iter().any(|(key, _)| *key == name)
+    }
+
+    fn raw(&self, name: &str) -> Option<&'a str> {
         self.items
             .iter()
             .find(|(key, _)| *key == name)
-            .map(|(_, value)| {
-                Zeroizing::new(String::from_utf8_lossy(&percent_decode(value)).into_owned())
-            })
+            .map(|(_, value)| *value)
+    }
+
+    /// A value that is not a secret, decoded like `QUrlQuery` does.
+    fn value(&self, name: &str) -> Option<Zeroizing<String>> {
+        self.raw(name).map(|value| {
+            Zeroizing::new(String::from_utf8_lossy(&percent_decode(value)).into_owned())
+        })
+    }
+
+    /// A Base32 secret. Only the escapes KeePassXC itself writes, `%3D`
+    /// for padding and `%20`, are decoded; any other escape is refused
+    /// instead of read differently. KeePassXC's `QUrlQuery` keeps an escape
+    /// encoded when it stands for `+`, a byte that is not UTF-8 or a `%`
+    /// without two hex digits, and its Base32 reader then drops the `%` and
+    /// keeps the hex digits as symbols, which would give both apps a
+    /// plausible but different code (measured with keepassxc-cli 2.7.12).
+    fn secret(&self, name: &str) -> Result<Zeroizing<String>, OtpError> {
+        let value = self.raw(name).ok_or(OtpError::InvalidSecret)?;
+        let bytes = value.as_bytes();
+        for (index, &byte) in bytes.iter().enumerate() {
+            if byte == b'%' {
+                let escape = bytes.get(index + 1..index + 3).unwrap_or_default();
+                if !escape.eq_ignore_ascii_case(b"3D") && escape != b"20" {
+                    return Err(OtpError::InvalidSecret);
+                }
+            }
+        }
+        let decoded = percent_decode(value);
+        // Only ASCII was decoded, so the bytes are the UTF-8 they were.
+        let text = std::str::from_utf8(&decoded).map_err(|_| OtpError::InvalidSecret)?;
+        Ok(Zeroizing::new(text.to_owned()))
     }
 
     fn number(&self, name: &str) -> Option<u32> {
@@ -326,7 +360,7 @@ impl<'a> Query<'a> {
     }
 
     fn otpauth_settings(&self) -> Result<TotpSettings, OtpError> {
-        let secret = self.value("secret").ok_or(OtpError::InvalidSecret)?;
+        let secret = self.secret("secret")?;
         let encoder = match self.value("encoder").as_ref().map(|value| value.as_str()) {
             Some(STEAM_ENCODER) => Encoder::Steam,
             _ => Encoder::Decimal,

@@ -155,8 +155,43 @@ fn parses_labels_parameters_and_percent_escapes() {
 
     let parsed =
         parse_uri("otpauth://totp/Valve:gaben?secret=JBSWY3DPEHPK3PXP&encoder=steam").unwrap();
-    assert_eq!(parsed.settings.encoder, Encoder::Steam);
-    assert_eq!(parsed.settings.digits, 5, "Steam without digits uses five");
+    assert_eq!(parsed.settings.encoder(), Encoder::Steam);
+    assert_eq!(
+        parsed.settings.digits(),
+        5,
+        "Steam without digits uses five"
+    );
+}
+
+#[test]
+fn secrets_with_escapes_keepassxc_keeps_encoded_are_refused() {
+    // KeePassXC's QUrlQuery leaves these escapes encoded and its Base32
+    // reader keeps the hex digits as symbols; the code would differ.
+    for secret in [
+        "JBSWY3DPEHPK3PXP%FF",
+        "JBSWY3DP%FFEHPK3PXP",
+        "JBSWY3DPEHPK3PXP%",
+        "JBSWY3DPEHPK3PXP%2B",
+    ] {
+        assert_eq!(
+            parse_uri(&format!("otpauth://totp/a?secret={secret}")).map(|_| ()),
+            Err(OtpError::InvalidSecret),
+            "{secret}"
+        );
+        assert_eq!(
+            from_attributes(&[("otp", &format!("key={secret}&size=6&step=30"))]).map(|_| ()),
+            Err(OtpError::InvalidSecret),
+            "KeeOtp {secret}"
+        );
+    }
+    // The escapes KeePassXC writes itself still read.
+    let padded = parse_uri("otpauth://totp/a?secret=MZXW6YQ%3D&issuer=x").unwrap();
+    let spaced = parse_uri("otpauth://totp/a?secret=MZXW%206YQ=&issuer=x").unwrap();
+    assert_eq!(code(&padded.settings, 59), code(&spaced.settings, 59));
+    assert_eq!(
+        code(&padded.settings, 59),
+        code(&settings("MZXW6YQ=", Algorithm::Sha1, 6, 30), 59)
+    );
 }
 
 #[test]
