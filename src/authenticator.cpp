@@ -232,22 +232,20 @@ void Authenticator::onUnlockFinished(int attempt, int status, qulonglong handle,
     }
     updateAccountCount();
     setState(Unlocked);
-    // Starts the deadlines, and locks at once when the app went to the
-    // background while the KDF ran and that time is already up.
+    // Starts the deadlines; an app that went to the background while the
+    // KDF ran gets its background deadline from now.
     m_autoLock.start();
 }
 
 void Authenticator::lock()
 {
+    if (m_saving) {
+        deferLock(PendingLock::Manual);
+        return;
+    }
     m_autoLock.stop();
     m_clipboard.clear();
     clearPending();
-    if (m_saving) {
-        // The save still reads the handle; its result handler locks.
-        if (m_pendingLock == PendingLock::None)
-            m_pendingLock = PendingLock::Manual;
-        return;
-    }
     ++m_attempt;
     if (m_state == Unlocking) {
         setState(Locked);
@@ -282,11 +280,27 @@ void Authenticator::lockAutomatically()
     if (m_state != Unlocked)
         return;
     if (m_saving) {
-        m_pendingLock = PendingLock::Automatic;
+        deferLock(PendingLock::Automatic);
         return;
     }
     lock();
     emit lockedAutomatically();
+}
+
+void Authenticator::deferLock(PendingLock kind)
+{
+    m_autoLock.stop();
+    m_clipboard.clear();
+    clearPending();
+    const bool first = m_pendingLock == PendingLock::None;
+    // A lock the user asked for is reported as such, even after a deadline
+    // passed during the same save.
+    if (first || kind == PendingLock::Manual)
+        m_pendingLock = kind;
+    // Nothing is readable until the lock completes; lists empty now instead
+    // of showing the last codes for as long as the save takes.
+    if (first)
+        emit contentChanged();
 }
 
 void Authenticator::enforceDeadlines()
@@ -345,7 +359,7 @@ int Authenticator::preparePending(const QString &secret, int algorithm, int digi
                                   bool steam)
 {
     clearPending();
-    if (m_state != Unlocked || digits < 0 || period < 0)
+    if (!readableDatabase() || digits < 0 || period < 0)
         return InvalidSettings;
     const CoreText secretText(secret);
     SfPending *pending = nullptr;
@@ -359,7 +373,7 @@ int Authenticator::preparePending(const QString &secret, int algorithm, int digi
 
 bool Authenticator::takeScan(FrameScanner *scanner)
 {
-    if (!scanner || m_state != Unlocked)
+    if (!scanner || !readableDatabase())
         return false;
     CorePending pending = scanner->takePending();
     if (!pending)
@@ -421,9 +435,11 @@ bool Authenticator::change(const Edit &edit)
         return false;
     if (changed) {
         setDirty(true);
+        // The save starts before anyone reloads: a lock deadline met during
+        // the reload then waits for the save instead of discarding the edit.
+        save();
         updateAccountCount();
         emit contentChanged();
-        save();
     }
     return true;
 }

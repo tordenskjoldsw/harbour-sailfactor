@@ -169,6 +169,11 @@ private:
     // Clears the clipboard and locks when their deadlines have passed.
     void enforceDeadlines();
     void cancelPendingUnlock();
+    // A lock requested during a save waits for it.
+    enum class PendingLock { None, Manual, Automatic };
+    // Does what a lock can do while the save still reads the handle, and
+    // leaves the rest to the save's result handler.
+    void deferLock(PendingLock kind);
     // Runs a lock requested while saving.
     void resumePendingLock();
     void setState(State state);
@@ -188,8 +193,6 @@ private:
     bool m_dirty = false;
     bool m_hasFile = false;
     int m_accountCount = 0;
-    // A lock requested during a save waits for it.
-    enum class PendingLock { None, Manual, Automatic };
     PendingLock m_pendingLock = PendingLock::None;
     // SHA-256 of the file as it was unlocked or last saved.
     QByteArray m_fileDigest;
