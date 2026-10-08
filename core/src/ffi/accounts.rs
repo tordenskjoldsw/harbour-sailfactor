@@ -385,6 +385,60 @@ pub unsafe extern "C" fn sf_account_delete(
     }
 }
 
+/// The number of entries and groups in the recycle bin, at any depth.
+///
+/// # Safety
+///
+/// `database` must be a live handle; `items_out` valid for one write.
+#[no_mangle]
+pub unsafe extern "C" fn sf_database_recycle_bin_items(
+    database: *const SfDatabase,
+    items_out: *mut usize,
+) -> i32 {
+    // SAFETY: guaranteed by the caller.
+    let Some(items_out) = (unsafe { items_out.as_mut() }) else {
+        return SF_INVALID_ARGUMENT;
+    };
+    *items_out = 0;
+    // SAFETY: guaranteed by the caller.
+    let Some(database) = (unsafe { database.as_ref() }) else {
+        return SF_INVALID_ARGUMENT;
+    };
+    *items_out = accounts::recycle_bin_items(&database.database);
+    SF_OK
+}
+
+/// Removes everything in the recycle bin for good, as KeePassXC does, and
+/// records it as deleted; `changed_out` tells whether anything was removed.
+///
+/// # Safety
+///
+/// `database` must be a live handle not in use by another thread;
+/// `changed_out` valid for one write.
+#[no_mangle]
+pub unsafe extern "C" fn sf_database_empty_recycle_bin(
+    database: *mut SfDatabase,
+    now: i64,
+    changed_out: *mut bool,
+) -> i32 {
+    // SAFETY: guaranteed by the caller.
+    let Some(changed_out) = (unsafe { changed_out.as_mut() }) else {
+        return SF_INVALID_ARGUMENT;
+    };
+    *changed_out = false;
+    // SAFETY: guaranteed by the caller.
+    let Some(database) = (unsafe { database.as_mut() }) else {
+        return SF_INVALID_ARGUMENT;
+    };
+    match accounts::empty_recycle_bin(&mut database.database, now) {
+        Ok(changed) => {
+            *changed_out = changed;
+            SF_OK
+        }
+        Err(error) => kdbx_status(error),
+    }
+}
+
 /// # Safety
 ///
 /// `list` must be null or a live list.

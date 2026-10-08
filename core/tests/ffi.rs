@@ -5,7 +5,8 @@ use std::ptr;
 use sailfactor_core::ffi::accounts::{
     sf_account_add, sf_account_code, sf_account_delete, sf_account_list, sf_account_list_free,
     sf_account_list_has_password, sf_account_list_kind, sf_account_list_length,
-    sf_account_list_text, sf_account_list_uuid, sf_account_rename,
+    sf_account_list_text, sf_account_list_uuid, sf_account_rename, sf_database_empty_recycle_bin,
+    sf_database_recycle_bin_items,
 };
 use sailfactor_core::ffi::database::{
     sf_database_create, sf_database_free, sf_database_from_kdbx3, sf_database_merge,
@@ -600,4 +601,44 @@ fn the_list_says_which_entries_store_a_password() {
         sf_account_list_free(list);
         sf_database_free(database);
     }
+}
+
+#[test]
+fn the_recycle_bin_is_counted_and_emptied() {
+    let database = open(FIXTURE, PASSWORD).unwrap();
+    let items = || {
+        let mut items = 9;
+        // SAFETY: database is live; items is a local.
+        assert_eq!(
+            unsafe { sf_database_recycle_bin_items(database, &mut items) },
+            SF_OK
+        );
+        items
+    };
+    assert_eq!(items(), 0);
+    let uuid = rows(database)[0].uuid;
+    let mut permanent = true;
+    // SAFETY: database is used by this thread only; uuid and permanent are locals.
+    assert_eq!(
+        unsafe { sf_account_delete(database, uuid.as_ptr(), NOW, &mut permanent) },
+        SF_OK
+    );
+    assert!(!permanent);
+    assert_eq!(items(), 1);
+    let mut changed = false;
+    // SAFETY: as above.
+    assert_eq!(
+        unsafe { sf_database_empty_recycle_bin(database, NOW, &mut changed) },
+        SF_OK
+    );
+    assert!(changed);
+    assert_eq!(items(), 0);
+    // SAFETY: as above; an empty bin changes nothing.
+    assert_eq!(
+        unsafe { sf_database_empty_recycle_bin(database, NOW, &mut changed) },
+        SF_OK
+    );
+    assert!(!changed);
+    // SAFETY: the handle is freed once.
+    unsafe { sf_database_free(database) };
 }

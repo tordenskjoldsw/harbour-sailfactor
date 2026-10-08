@@ -213,3 +213,20 @@ fn entries_with_a_password_are_marked() {
     assert!(find(both).has_password);
     assert!(matches!(find(both).kind, AccountKind::Totp { .. }));
 }
+
+#[test]
+fn emptying_the_recycle_bin_removes_deleted_accounts_for_good() {
+    let mut database = open();
+    assert_eq!(accounts::recycle_bin_items(&database), 0);
+    let uuid = uuid_of(&database, "Steam");
+    assert!(!accounts::delete(&mut database, &uuid, NOW).unwrap());
+    assert_eq!(accounts::recycle_bin_items(&database), 1);
+    assert!(accounts::empty_recycle_bin(&mut database, NOW).unwrap());
+    assert_eq!(accounts::recycle_bin_items(&database), 0);
+    assert!(database.entry(&uuid).is_none());
+    assert!(database
+        .deleted_objects()
+        .iter()
+        .any(|deleted| deleted.uuid == uuid));
+    assert!(!accounts::empty_recycle_bin(&mut database, NOW).unwrap());
+}

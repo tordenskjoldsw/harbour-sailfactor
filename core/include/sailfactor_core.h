@@ -175,6 +175,11 @@ int32_t sf_account_deletes_permanently(const SfDatabase *database, const uint8_t
 /* To the recycle bin, or for good when already there; permanent_out says which. */
 int32_t sf_account_delete(SfDatabase *database, const uint8_t *uuid, int64_t now,
                           bool *permanent_out);
+/* Entries and groups in the recycle bin, at any depth. */
+int32_t sf_database_recycle_bin_items(const SfDatabase *database, size_t *items_out);
+/* Removes everything in the recycle bin for good and records it as deleted,
+ * so merges and the sync remove it elsewhere too. */
+int32_t sf_database_empty_recycle_bin(SfDatabase *database, int64_t now, bool *changed_out);
 
 /*
  * Accounts waiting to be added. A camera frame has one byte of brightness

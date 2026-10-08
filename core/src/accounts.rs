@@ -7,7 +7,7 @@
 
 use zeroize::Zeroizing;
 
-use crate::kdbx::{Database, Entry, KdbxError, NewField};
+use crate::kdbx::{Database, Entry, Group, KdbxError, NewField};
 use crate::otp::{
     self, Encoder, OtpError, TotpSettings, ATTRIBUTE_KEEPASS2_ALGORITHM, ATTRIBUTE_KEEPASS2_LENGTH,
     ATTRIBUTE_KEEPASS2_PERIOD, ATTRIBUTE_KEEPASS2_SECRET, ATTRIBUTE_OTP, ATTRIBUTE_SEED,
@@ -173,6 +173,25 @@ pub fn delete(
     now: i64,
 ) -> Result<bool, KdbxError> {
     database.delete_entry(uuid, now)
+}
+
+/// The entries and groups in the recycle bin, at any depth: deleted
+/// accounts keep their secrets there until the bin is emptied.
+pub fn recycle_bin_items(database: &Database) -> usize {
+    fn items(group: &Group<'_>) -> usize {
+        group.entries().count() + group.groups().map(|child| 1 + items(&child)).sum::<usize>()
+    }
+    database
+        .existing_recycle_bin()
+        .and_then(|bin| database.group(&bin))
+        .map_or(0, |bin| items(&bin))
+}
+
+/// Removes everything in the recycle bin for good and records it as
+/// deleted, so a merge or the sync removes it from other copies too.
+/// Returns whether anything was removed.
+pub fn empty_recycle_bin(database: &mut Database, now: i64) -> Result<bool, KdbxError> {
+    database.empty_recycle_bin(now)
 }
 
 fn entry_settings(entry: &Entry<'_>) -> Result<Option<TotpSettings>, OtpError> {
