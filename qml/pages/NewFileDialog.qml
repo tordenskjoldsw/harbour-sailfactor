@@ -2,18 +2,22 @@ import QtQuick 2.0
 import Sailfish.Silica 1.0
 import "../components"
 
-// Asks for the master password of the new file. The caller creates it from
-// these properties when accepted.
+// Asks for the name and the master password of a new file. The caller
+// creates it from these properties when accepted.
 Dialog {
     id: dialog
 
     // NIST SP 800-63B rev. 4 asks for 15 characters when a password is the
     // only factor, as the master password is here.
     readonly property int minimumPasswordLength: 15
+    readonly property string name: nameField.text.trim()
+    readonly property bool validName: databases.isValidName(name)
+    readonly property bool exists: databases.exists(name)
     property alias password: passwordField.text
     readonly property int kdfLevel: kdfBox.kdfLevel
 
-    canAccept: passwordField.text.length >= minimumPasswordLength
+    canAccept: validName && !exists
+               && passwordField.text.length >= minimumPasswordLength
                && repeatField.text === passwordField.text
     allowedOrientations: Orientation.All
 
@@ -29,6 +33,23 @@ Dialog {
             DialogHeader {
                 title: qsTr("New file")
                 acceptText: qsTr("Create")
+            }
+
+            TextField {
+                id: nameField
+
+                width: parent.width
+                label: qsTr("Name")
+                placeholderText: label
+                // The first file gets the app's name, which KeePassXC then
+                // shows as the database name.
+                text: databases.exists(databases.defaultName) ? "" : databases.defaultName
+                errorHighlight: dialog.name.length > 0 && (!dialog.validName || dialog.exists)
+                description: dialog.exists ? qsTr("A file with this name already exists")
+                           : dialog.name.length > 0 && !dialog.validName ? qsTr("Not a valid name")
+                           : ""
+                EnterKey.iconSource: "image://theme/icon-m-enter-next"
+                EnterKey.onClicked: passwordField.focus = true
             }
 
             ProtectionComboBox {
