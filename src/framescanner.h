@@ -9,9 +9,10 @@
 #include "corebridge.h"
 
 // Looks for a QR code with a TOTP account in the camera's viewfinder
-// frames. The runnable maps each frame on the render thread and copies its
-// brightness; a decode on a worker thread turns it into a pending account
-// in the Rust core, and frames that arrive meanwhile are skipped. The QR
+// frames. The runnable maps each frame on the render thread and copies the
+// brightness of its central square; a decode on a worker thread turns it
+// into a pending account in the Rust core, and frames that arrive meanwhile
+// are skipped. The QR
 // payload never leaves the core. After a find the scanner pauses until
 // rearm.
 class FrameScanner : public QAbstractVideoFilter

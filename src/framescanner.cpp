@@ -57,9 +57,12 @@ bool lumaLayout(QVideoFrame::PixelFormat format, LumaLayout *layout)
     }
 }
 
-// Copies the brightness of a mapped frame into one byte per pixel, so the
-// frame can be unmapped before the slow decode.
-bool copyLuma(const QVideoFrame &frame, QByteArray &luma)
+// Copies the brightness of the frame's central square into one byte per
+// pixel, so the frame can be unmapped before the slow decode. The square is
+// where the guide on the scan page sits: decoding it at full resolution
+// finds codes from farther away than the whole frame scaled down would,
+// for the same decode time.
+bool copyCentralLuma(const QVideoFrame &frame, QByteArray &luma, int &side)
 {
     LumaLayout layout;
     if (!lumaLayout(frame.pixelFormat(), &layout))
@@ -69,16 +72,19 @@ bool copyLuma(const QVideoFrame &frame, QByteArray &luma)
     const int stride = frame.bytesPerLine(0);
     if (width <= 0 || height <= 0 || stride < (width - 1) * layout.pixelStep + layout.offset + 1)
         return false;
-    luma = QByteArray(width * height, Qt::Uninitialized);
-    const uchar *source = frame.bits(0) + layout.offset;
+    side = qMin(width, height);
+    const int left = (width - side) / 2;
+    const int top = (height - side) / 2;
+    luma = QByteArray(side * side, Qt::Uninitialized);
+    const uchar *source = frame.bits(0) + layout.offset + qint64(left) * layout.pixelStep;
     char *target = luma.data();
-    for (int y = 0; y < height; ++y) {
-        const uchar *row = source + qint64(y) * stride;
-        char *out = target + qint64(y) * width;
+    for (int y = 0; y < side; ++y) {
+        const uchar *row = source + qint64(top + y) * stride;
+        char *out = target + qint64(y) * side;
         if (layout.pixelStep == 1) {
-            std::memcpy(out, row, static_cast<size_t>(width));
+            std::memcpy(out, row, static_cast<size_t>(side));
         } else {
-            for (int x = 0; x < width; ++x)
+            for (int x = 0; x < side; ++x)
                 out[x] = static_cast<char>(row[x * layout.pixelStep]);
         }
     }
@@ -129,12 +135,11 @@ public:
         if (!m_scanner->accepting() || !input->map(QAbstractVideoBuffer::ReadOnly))
             return *input;
         QByteArray luma;
-        const bool copied = copyLuma(*input, luma);
-        const int width = input->width();
-        const int height = input->height();
+        int side = 0;
+        const bool copied = copyCentralLuma(*input, luma, side);
         input->unmap();
         if (copied)
-            m_scanner->decode(std::move(luma), width, height);
+            m_scanner->decode(std::move(luma), side, side);
         else
             QMetaObject::invokeMethod(m_scanner, "onUnsupportedFrame", Qt::QueuedConnection);
         return *input;
