@@ -1,11 +1,12 @@
 # SailFactor threat model
 
-Status: 2026-10-08, Phase 3 (the app creates one file, unlocks it, shows
-codes, adds accounts by QR scan or by typing the secret, renames and
-deletes them), written before the first device test with real accounts and
-brought up to date with the Phase 4 security review
-(`security-review-2026-10.md`). Covers the code in this repository at that
-state. Points marked
+Status: 2026-10-08, Phase 4 (the app keeps several files, creates them or
+adds them from Documents or Downloads with an optional key file, saves
+copies there, shows codes, adds accounts by QR scan or by typing the
+secret, renames and deletes them). Written before the first device test
+with real accounts, brought up to date with the Phase 4 security review
+(`security-review-2026-10.md`) and the file features after it. Covers
+the code in this repository at that state. Points marked
 **unverified** have not been checked on Sailfish OS or the device yet;
 points marked "checked for SailVault" were measured on the same Jolla Phone
 (Sailfish OS 5.2.0.18) for SailVault, which shares this design.
@@ -29,7 +30,9 @@ apps, and whoever controls it can wait for both to be unlocked.
 | An account waiting to be added | In the core, from a scan or a typed secret until it is added or dropped; dropped on lock |
 | Codes | Computed in the core; on screen while the list shows; on the clipboard for up to 30 seconds after a copy |
 | Master password | Typed into the unlock page; never stored |
-| The file | `~/.local/share/de.tordenskjold/sailfactor/databases/SailFactor.kdbx`, owner-only permissions |
+| The files | `~/.local/share/de.tordenskjold/sailfactor/databases/<name>.kdbx`, owner-only permissions; `settings.ini` in the app's config directory names the chosen file and holds nothing else |
+| Key files | `~/.local/share/de.tordenskjold/sailfactor/keyfiles/<name>.key`, unencrypted, owner-only permissions, only for files added with one; read into RAM during an unlock |
+| Copies the user saves, originals not yet deleted | Documents or Downloads, encrypted like the file; key files unencrypted |
 | Backups | `~/.local/share/de.tordenskjold/sailfactor/backups/`: the three newest versions the app replaced, encrypted like the file, owner-only like the file |
 | Camera frames | While the scan page is open: the camera stack's buffers, and one copy of the brightness per decoded frame |
 
@@ -63,8 +66,11 @@ Rust core                 KDBX4 parsing and writing, KDF, encryption, TOTP,
   secret of at most 512 bytes, digits 1 to 10, a period of 1 to 86400
   seconds. Camera frames are bounded to 4096 pixels per side, QR payloads
   to 2048 bytes.
-- The app runs in the Sailjail sandbox with the permission `Camera`, used
-  only on the scan page. It has no network access.
+- The app runs in the Sailjail sandbox with the permissions `Camera`, used
+  only on the scan page, and `Documents` and `Downloads`, used only to read
+  a file and key file the user picks, to save a copy under a name the user
+  gives, and to delete the originals of an added file when asked. It has
+  no network access.
 
 ## Attackers and protections
 
@@ -89,7 +95,13 @@ Protected:
 Limits:
 
 - The protection is only as strong as the master password and the KDF
-  parameters.
+  parameters. For a file added from KeePassXC the user chose them there,
+  and the app opens weak settings without warning; a KDBX 3.1 file is
+  stored as KDBX 4 with Argon2id at the level chosen when it is added.
+- A key file kept on the phone next to the file adds no protection against
+  someone who has the phone's files; it protects a copy that leaves the
+  phone without it. For that reason the app adds only files that need a
+  password, so the files on the phone never unlock a file by themselves.
 - Backups are protected by the password in effect when they were written;
   re-protecting or deleting them on a password change is planned
   (`PLAN.md`, section 7).
@@ -126,7 +138,11 @@ Limits:
 Protected:
 
 - Sailjail isolates the app's memory and private directories from other
-  sandboxed apps; the file and its backups live there.
+  sandboxed apps; the files, key files and backups live there, so apps with
+  the `Documents` or `Downloads` permission can neither read nor replace
+  nor delete them. A file from outside is added by unlocking it once; only
+  then are the file and the key file that opened it copied in, and the
+  app offers to delete the originals.
 - A copied code is cleared from the clipboard 30 seconds after the copy
   (counting sleep time), on lock and on exit, but only if the clipboard
   still holds that code, so the app never clears what another app put
@@ -140,6 +156,11 @@ Limits:
 - During the 30 seconds, any app that can read the clipboard can read the
   copied code. A code is useful only within its time step, usually 30
   seconds, and only together with the password of that account.
+- A copy saved to Documents or Downloads, and an original not yet
+  deleted, can be read, replaced and deleted by every app with that
+  permission. The file is encrypted, a key file next to it is not; the
+  dialog says so and suggests deleting the copy once it is on the
+  computer.
 - Unsandboxed apps (OpenRepos, Chum, `Sandboxing=Disabled`) and the user
   with `devel-su` are not restricted by Sailjail.
 
@@ -235,8 +256,6 @@ SailVault's.
 
 ## Changes in later phases
 
-- Phase 4: files added from Documents or Downloads, key files, copies saved
-  there.
 - Phase 5: Nextcloud sync and the `Internet` permission (section 6).
 - A quick unlock (Phase 7 at the earliest, opt-in, RAM only) would add a
   section here.

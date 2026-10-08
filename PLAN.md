@@ -5,8 +5,9 @@ the Jolla Phone (create, unlock, scan or type in accounts, codes that
 match KeePassXC and a real service's login, auto-lock, backups; cold start
 506 ms median, `docs/spike-results.md`). Phase 4 began with the security
 review of 0.1.0 (`docs/security-review-2026-10.md`, 2026-10-08, no finding
-above low); next are its remaining items, files from Documents or
-Downloads, key files, a saved copy and several files. The name was
+above low, fixes tested on the device); several files, files added from
+Documents or Downloads with key files, and saved copies are built; next
+is their device test and 0.2.0. The name was
 chosen on 2026-10-07; a dormant GitHub repository `lanurmi/sailfactor` (an
 integer factoring tool, last commit 2014, never in a store) shares it,
 OpenRepos has no match, the Jolla Store was not searchable without an
@@ -188,7 +189,10 @@ of every account. Inherited from SailVault's section 7, with one addition:
 Private storage from day one (SailVault needed a migration decision for
 this): `databases/<name>.kdbx`, `keyfiles/<name>.key`, `backups/`. Files
 from Documents or Downloads are added by unlocking them once and copied
-in. `OrganizationName` and `ApplicationName` in the desktop file never
+in. An added file must need a password: its key file is stored next to
+it, so a file that opens with the key file alone would be unlocked by
+what is on the disk (criterion 3). The first file a user creates is named
+`SailFactor`, the name the single file of 0.1.0 has. `OrganizationName` and `ApplicationName` in the desktop file never
 change after the first release, since they name the data directory.
 
 ## 8. Sync design
