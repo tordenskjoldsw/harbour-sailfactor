@@ -9,8 +9,8 @@
 
 // Looks for a QR code in the camera's viewfinder frames. The runnable maps
 // each frame on the render thread and hands its luma to the Rust core; the
-// results reach this object as queued calls. The payload never leaves C++:
-// QML learns only whether a TOTP URI was found and how long it is.
+// results reach this object as queued calls. The payload never leaves the
+// core: QML learns only whether the code is a TOTP account.
 class FrameScanner : public QAbstractVideoFilter
 {
     Q_OBJECT
@@ -31,7 +31,6 @@ class FrameScanner : public QAbstractVideoFilter
     Q_PROPERTY(int maxMapMs READ maxMapMs NOTIFY decodeStatsChanged)
     Q_PROPERTY(qreal averageMapMs READ averageMapMs NOTIFY decodeStatsChanged)
     Q_PROPERTY(bool totpUri READ totpUri NOTIFY statusChanged)
-    Q_PROPERTY(int payloadLength READ payloadLength NOTIFY statusChanged)
 
 public:
     enum Status { Waiting, Scanning, Found, Unmappable, UnsupportedFormat };
@@ -59,7 +58,6 @@ public:
     int maxMapMs() const { return m_maxMapMs; }
     qreal averageMapMs() const;
     bool totpUri() const { return m_totpUri; }
-    int payloadLength() const { return m_payloadLength; }
 
     bool paused() const { return m_paused.load(); }
 
@@ -72,7 +70,7 @@ public:
     Q_INVOKABLE void recordFramesPerSecond(qreal framesPerSecond, bool scanning);
     Q_INVOKABLE void recordDecode(int mapMilliseconds, int decodeMilliseconds);
     Q_INVOKABLE void recordFailure(int status);
-    Q_INVOKABLE void recordCode(bool totpUri, int payloadLength);
+    Q_INVOKABLE void recordCode(bool totpUri);
 
 signals:
     void frameIntervalChanged();
@@ -103,7 +101,6 @@ private:
     int m_maxMapMs = 0;
     qint64 m_totalMapMs = 0;
     bool m_totpUri = false;
-    int m_payloadLength = 0;
 };
 
 #endif // FRAMESCANNER_H

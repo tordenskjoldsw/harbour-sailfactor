@@ -20,7 +20,7 @@ Page {
         switch (scanner.status) {
         case FrameScanner.Waiting: return qsTr("Waiting for frames")
         case FrameScanner.Scanning: return qsTr("Scanning")
-        case FrameScanner.Found: return scanner.totpUri ? qsTr("TOTP link found") : qsTr("Other QR code found")
+        case FrameScanner.Found: return scanner.totpUri ? qsTr("TOTP account found") : qsTr("QR code without a TOTP account")
         case FrameScanner.Unmappable: return qsTr("Frames cannot be read")
         case FrameScanner.UnsupportedFormat: return qsTr("Unsupported frame format")
         }
@@ -123,11 +123,6 @@ Page {
                     width: parent.width
 
                     DetailItem { label: qsTr("Status"); value: page.statusText() }
-                    DetailItem {
-                        visible: scanner.status === FrameScanner.Found
-                        label: qsTr("Payload length")
-                        value: scanner.payloadLength
-                    }
                     DetailItem {
                         visible: page.timeToCodeMs >= 0
                         label: qsTr("Time to code")

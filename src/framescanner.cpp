@@ -5,13 +5,10 @@
 #include <QMetaObject>
 #include <QVideoFrame>
 
-#include <cstring>
-
 #include "sailfactor_core.h"
 
 namespace {
 
-const char totpPrefix[] = "otpauth://totp/";
 // Reported in place of a core status when a frame cannot be mapped.
 const int mapFailed = -1;
 
@@ -152,28 +149,32 @@ private:
             m_mappedReported = true;
         }
         const qint64 planeBytes = qint64(bytesPerLine) * frame->height() - layout.offset;
-        SfString payload{nullptr, 0};
+        SfPending *pending = nullptr;
         QElapsedTimer timer;
         timer.start();
         const int32_t status = planeBytes > 0
-            ? sf_qr_decode(frame->bits(0) + layout.offset, size_t(planeBytes),
-                           uint32_t(frame->width()), uint32_t(frame->height()),
-                           uint32_t(bytesPerLine), uint32_t(layout.pixelStep), &payload)
+            ? sf_pending_from_frame(frame->bits(0) + layout.offset, size_t(planeBytes),
+                                    uint32_t(frame->width()), uint32_t(frame->height()),
+                                    uint32_t(bytesPerLine), uint32_t(layout.pixelStep), &pending)
             : SF_INVALID_ARGUMENT;
         const int milliseconds = int(timer.elapsed());
         frame->unmap();
+        // The spike only reports what it found; the account itself is not
+        // kept, and its secret is wiped here.
+        sf_pending_free(pending);
 
         QMetaObject::invokeMethod(m_scanner, "recordDecode", Qt::QueuedConnection,
                                   Q_ARG(int, mapMilliseconds), Q_ARG(int, milliseconds));
-        if (status == SF_OK) {
-            const bool totpUri = payload.length >= sizeof totpPrefix - 1
-                && std::memcmp(payload.data, totpPrefix, sizeof totpPrefix - 1) == 0;
-            const int length = int(payload.length);
-            sf_string_free(payload);
-            QMetaObject::invokeMethod(m_scanner, "recordCode", Qt::QueuedConnection,
-                                      Q_ARG(bool, totpUri), Q_ARG(int, length));
-        } else if (status != SF_NOT_FOUND) {
+        switch (status) {
+        case SF_NOT_FOUND:
+        case SF_CORRUPTED:
+            break;
+        case SF_INVALID_ARGUMENT:
             fail(status);
+            break;
+        default:
+            QMetaObject::invokeMethod(m_scanner, "recordCode", Qt::QueuedConnection,
+                                      Q_ARG(bool, status == SF_OK));
         }
     }
 
@@ -230,7 +231,6 @@ void FrameScanner::rearm()
     m_maxMapMs = 0;
     m_totalMapMs = 0;
     m_totpUri = false;
-    m_payloadLength = 0;
     emit decodeStatsChanged();
     setStatus(Waiting);
     m_paused.store(false);
@@ -279,12 +279,11 @@ void FrameScanner::recordFailure(int status)
         setStatus(UnsupportedFormat);
 }
 
-void FrameScanner::recordCode(bool totpUri, int payloadLength)
+void FrameScanner::recordCode(bool totpUri)
 {
     if (m_paused.exchange(true))
         return;
     m_totpUri = totpUri;
-    m_payloadLength = payloadLength;
     setStatus(Found);
     emit codeFound();
 }

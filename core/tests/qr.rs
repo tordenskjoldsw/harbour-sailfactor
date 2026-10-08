@@ -3,7 +3,8 @@
 
 use std::path::PathBuf;
 
-use sailfactor_core::ffi::{sf_qr_decode, sf_string_free, SfString, SF_OK};
+use sailfactor_core::ffi::pending::{sf_pending_free, sf_pending_from_frame, sf_pending_text};
+use sailfactor_core::ffi::{sf_string_free, SfPending, SfString, SF_OK, SF_TEXT_NAME};
 use sailfactor_core::qr::{self, LumaFrame, QrError, MAX_PAYLOAD_LENGTH};
 
 const TOTP_URI: &str =
@@ -186,29 +187,35 @@ fn rejects_invalid_frame_layouts() {
 }
 
 #[test]
-fn c_api_returns_the_payload() {
+fn c_api_turns_a_frame_into_a_pending_account() {
     let frame = render(&modules("totp.txt"), &PLAIN);
-    let mut out = SfString {
-        data: std::ptr::null_mut(),
-        length: 0,
-    };
     let side = frame.width as u32;
-    // SAFETY: the frame buffer holds side * side bytes; out is a local.
+    let mut pending: *mut SfPending = std::ptr::null_mut();
+    // SAFETY: the frame buffer holds side * side bytes; pending is a local.
     let status = unsafe {
-        sf_qr_decode(
+        sf_pending_from_frame(
             frame.pixels.as_ptr(),
             frame.pixels.len(),
             side,
             side,
             side,
             1,
-            &mut out,
+            &mut pending,
         )
     };
     assert_eq!(status, SF_OK);
-    // SAFETY: on success out holds length bytes owned by the core.
-    let payload = unsafe { std::slice::from_raw_parts(out.data, out.length) };
-    assert_eq!(payload, TOTP_URI.as_bytes());
-    // SAFETY: out came from sf_qr_decode and is not used afterwards.
-    unsafe { sf_string_free(out) };
+    let mut name = SfString::EMPTY;
+    // SAFETY: pending is live and name a local.
+    assert_eq!(
+        unsafe { sf_pending_text(pending, SF_TEXT_NAME, &mut name) },
+        SF_OK
+    );
+    // SAFETY: on success name holds length bytes owned by the core.
+    let text = unsafe { std::slice::from_raw_parts(name.data, name.length) };
+    assert_eq!(text, b"alice@example.org");
+    // SAFETY: both came from the core and are not used afterwards.
+    unsafe {
+        sf_string_free(name);
+        sf_pending_free(pending);
+    }
 }
