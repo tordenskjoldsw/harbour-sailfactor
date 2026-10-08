@@ -2,8 +2,10 @@
 
 Status: 2026-10-08, Phase 3 (the app creates one file, unlocks it, shows
 codes, adds accounts by QR scan or by typing the secret, renames and
-deletes them), written before the first device test with real accounts.
-Covers the code in this repository at that state. Points marked
+deletes them), written before the first device test with real accounts and
+brought up to date with the Phase 4 security review
+(`security-review-2026-10.md`). Covers the code in this repository at that
+state. Points marked
 **unverified** have not been checked on Sailfish OS or the device yet;
 points marked "checked for SailVault" were measured on the same Jolla Phone
 (Sailfish OS 5.2.0.18) for SailVault, which shares this design.
@@ -28,7 +30,7 @@ apps, and whoever controls it can wait for both to be unlocked.
 | Codes | Computed in the core; on screen while the list shows; on the clipboard for up to 30 seconds after a copy |
 | Master password | Typed into the unlock page; never stored |
 | The file | `~/.local/share/de.tordenskjold/sailfactor/databases/SailFactor.kdbx`, owner-only permissions |
-| Backups | `~/.local/share/de.tordenskjold/sailfactor/backups/`: the three newest versions the app replaced, encrypted like the file |
+| Backups | `~/.local/share/de.tordenskjold/sailfactor/backups/`: the three newest versions the app replaced, encrypted like the file, owner-only like the file |
 | Camera frames | While the scan page is open: the camera stack's buffers, and one copy of the brightness per decoded frame |
 
 ## Architecture and trust boundaries
@@ -53,8 +55,9 @@ Rust core                 KDBX4 parsing and writing, KDF, encryption, TOTP,
   code for the current time step and the seconds left. A typed secret
   crosses once, on the way in.
 - A QR code is decoded in the core from a copy of the frame's brightness,
-  and its payload is parsed there; it never reaches C++ or QML. The C++
-  copy of the frame is wiped after the decode.
+  and its payload is parsed there; it never reaches C++ or QML. The copy
+  is bounded by the frame's dimensions and its mapped size, and wiped
+  after the decode.
 - `otpauth://` URIs and the TOTP attributes of an entry are untrusted input
   with bounds: 2048 bytes per URI or attribute, 32 query parameters, a
   secret of at most 512 bytes, digits 1 to 10, a period of 1 to 86400
@@ -77,7 +80,9 @@ Protected:
 - No decrypted data is written to disk. A save writes the encrypted file to
   a new temporary file next to it (created exclusively, never through a
   symlink, read back through the same descriptor) and renames it over the
-  original; the previous file goes to the backups, encrypted as it was.
+  original; the previous file goes to the backups, encrypted as it was and
+  written the same way. The app's data directory and the directories for
+  files and backups are owner-only.
 - `/home` is LUKS-encrypted on the Jolla Phone (checked for SailVault),
   which protects the files while the phone is off.
 
@@ -95,7 +100,10 @@ Protected:
 
 - Auto-lock after 2 minutes without input and after 30 seconds in the
   background; manual lock from the pulley menu and the cover. Locking drops
-  and zeroizes the decrypted file and any account waiting to be added.
+  and zeroizes the decrypted file and any account waiting to be added. A
+  lock requested while a save still reads the file clears the clipboard and
+  the waiting account at once, hides the accounts, and releases the file
+  when the save ends, within the time one key derivation takes.
 - The deadlines count time the phone spends asleep (`CLOCK_BOOTTIME`). They
   are checked before every access, when the app becomes active, and every
   5 seconds while a deadline is pending (as in SailVault, whose behavior
@@ -145,8 +153,10 @@ Protected:
 - Parsing is done in Rust with the bounds above; malformed input produces
   an error, not undefined behavior. `unsafe` code is limited to the C API.
 - TOTP settings an entry cannot express are shown as unreadable instead of
-  producing codes; a counter-based (HOTP) entry is shown as not supported
-  instead of with wrong codes.
+  producing codes: more than ten digits, an empty secret, or a secret with
+  a percent escape that KeePassXC would read as a different key. A
+  counter-based (HOTP) entry is shown as not supported instead of with
+  wrong codes.
 
 Limits:
 
