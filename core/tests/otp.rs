@@ -128,9 +128,9 @@ fn parses_labels_parameters_and_percent_escapes() {
     .unwrap();
     assert_eq!(parsed.issuer, "ACME Co");
     assert_eq!(parsed.account, "john.doe@email.com");
-    assert_eq!(parsed.settings.algorithm, Algorithm::Sha256);
-    assert_eq!(parsed.settings.digits, 8);
-    assert_eq!(parsed.settings.period, 60);
+    assert_eq!(parsed.settings.algorithm(), Algorithm::Sha256);
+    assert_eq!(parsed.settings.digits(), 8);
+    assert_eq!(parsed.settings.period(), 60);
 
     let parsed = parse_uri("otpauth://totp/Label%20Issuer:bob?secret=JBSWY3DPEHPK3PXP").unwrap();
     assert_eq!(parsed.issuer, "Label Issuer");
@@ -221,15 +221,18 @@ fn clamps_digits_and_period_like_keepassxc() {
         .unwrap()
         .unwrap()
     };
-    assert_eq!(read("digits=0").digits, 1);
-    assert_eq!(read("digits=12").digits, 10);
-    assert_eq!(read("digits=x").digits, 1);
-    assert_eq!(read("period=0").period, 1);
-    assert_eq!(read("period=100000").period, 86_400);
-    assert_eq!(read("algorithm=hmac-sha-512").algorithm, Algorithm::Sha512);
-    assert_eq!(read("algorithm=MD5").algorithm, Algorithm::Sha1);
+    assert_eq!(read("digits=0").digits(), 1);
+    assert_eq!(read("digits=12").digits(), 10);
+    assert_eq!(read("digits=x").digits(), 1);
+    assert_eq!(read("period=0").period(), 1);
+    assert_eq!(read("period=100000").period(), 86_400);
     assert_eq!(
-        read("encoder=Steam").encoder,
+        read("algorithm=hmac-sha-512").algorithm(),
+        Algorithm::Sha512
+    );
+    assert_eq!(read("algorithm=MD5").algorithm(), Algorithm::Sha1);
+    assert_eq!(
+        read("encoder=Steam").encoder(),
         Encoder::Decimal,
         "encoder names are exact"
     );
@@ -238,7 +241,10 @@ fn clamps_digits_and_period_like_keepassxc() {
 #[test]
 fn reads_every_form_keepassxc_reads_in_its_order() {
     let uri = "otpauth://totp/a?secret=JBSWY3DPEHPK3PXP&digits=8";
-    assert_eq!(from_attributes(&[("otp", uri)]).unwrap().unwrap().digits, 8);
+    assert_eq!(
+        from_attributes(&[("otp", uri)]).unwrap().unwrap().digits(),
+        8
+    );
 
     let keeotp = from_attributes(&[(
         "otp",
@@ -247,29 +253,29 @@ fn reads_every_form_keepassxc_reads_in_its_order() {
     .unwrap()
     .unwrap();
     assert_eq!(
-        (keeotp.digits, keeotp.period, keeotp.algorithm),
+        (keeotp.digits(), keeotp.period(), keeotp.algorithm()),
         (7, 45, Algorithm::Sha256)
     );
 
     let legacy = from_attributes(&[("TOTP Seed", EXAMPLE_SECRET), ("TOTP Settings", "60;8")])
         .unwrap()
         .unwrap();
-    assert_eq!((legacy.period, legacy.digits), (60, 8));
+    assert_eq!((legacy.period(), legacy.digits()), (60, 8));
     let legacy_steam = from_attributes(&[("TOTP Seed", EXAMPLE_SECRET), ("TOTP Settings", "60;S")])
         .unwrap()
         .unwrap();
     assert_eq!(
         (
-            legacy_steam.encoder,
-            legacy_steam.digits,
-            legacy_steam.period
+            legacy_steam.encoder(),
+            legacy_steam.digits(),
+            legacy_steam.period()
         ),
         (Encoder::Steam, 5, 30)
     );
     let legacy_default = from_attributes(&[("TOTP Seed", EXAMPLE_SECRET), ("TOTP Settings", "")])
         .unwrap()
         .unwrap();
-    assert_eq!((legacy_default.period, legacy_default.digits), (30, 6));
+    assert_eq!((legacy_default.period(), legacy_default.digits()), (30, 6));
 
     let keepass2 = from_attributes(&[
         ("TimeOtp-Secret-Base32", EXAMPLE_SECRET),
@@ -280,7 +286,7 @@ fn reads_every_form_keepassxc_reads_in_its_order() {
     .unwrap()
     .unwrap();
     assert_eq!(
-        (keepass2.algorithm, keepass2.digits, keepass2.period),
+        (keepass2.algorithm(), keepass2.digits(), keepass2.period()),
         (Algorithm::Sha256, 8, 60)
     );
 
@@ -292,7 +298,7 @@ fn reads_every_form_keepassxc_reads_in_its_order() {
     ])
     .unwrap()
     .unwrap();
-    assert_eq!(precedence.digits, 7, "TOTP Settings comes first");
+    assert_eq!(precedence.digits(), 7, "TOTP Settings comes first");
 }
 
 #[test]

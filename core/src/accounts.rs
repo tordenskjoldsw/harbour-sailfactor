@@ -80,9 +80,9 @@ pub fn list(database: &Database) -> Result<Vec<Account>, KdbxError> {
         }
         let kind = match entry_settings(&listed.entry) {
             Ok(Some(settings)) => AccountKind::Totp {
-                digits: settings.digits,
-                period: settings.period,
-                encoder: settings.encoder,
+                digits: settings.digits(),
+                period: settings.period(),
+                encoder: settings.encoder(),
             },
             Ok(None) => AccountKind::NoCode,
             Err(OtpError::Hotp) => AccountKind::Hotp,

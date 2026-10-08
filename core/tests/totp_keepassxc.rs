@@ -126,10 +126,10 @@ fn the_fixture_entries_have_the_expected_settings() {
     let summary = |name: &str| {
         let settings = &by_title[name];
         (
-            settings.algorithm,
-            settings.digits,
-            settings.period,
-            settings.encoder,
+            settings.algorithm(),
+            settings.digits(),
+            settings.period(),
+            settings.encoder(),
         )
     };
     assert_eq!(

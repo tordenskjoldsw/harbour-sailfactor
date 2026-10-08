@@ -51,14 +51,16 @@ pub enum OtpError {
 }
 
 /// Everything needed to compute a code. The seed is kept decoded and is
-/// wiped on drop; `Debug` leaves it out.
+/// wiped on drop; `Debug` leaves it out. The fields are checked once, on
+/// construction, so that `code_at` can rely on a period above zero and
+/// digits at most ten.
 #[derive(Clone, PartialEq, Eq)]
 pub struct TotpSettings {
     secret: Zeroizing<Vec<u8>>,
-    pub algorithm: Algorithm,
-    pub digits: u8,
-    pub period: u32,
-    pub encoder: Encoder,
+    algorithm: Algorithm,
+    digits: u8,
+    period: u32,
+    encoder: Encoder,
 }
 
 impl TotpSettings {
@@ -85,6 +87,22 @@ impl TotpSettings {
 
     pub(crate) fn secret(&self) -> &[u8] {
         &self.secret
+    }
+
+    pub fn algorithm(&self) -> Algorithm {
+        self.algorithm
+    }
+
+    pub fn digits(&self) -> u8 {
+        self.digits
+    }
+
+    pub fn period(&self) -> u32 {
+        self.period
+    }
+
+    pub fn encoder(&self) -> Encoder {
+        self.encoder
     }
 }
 
