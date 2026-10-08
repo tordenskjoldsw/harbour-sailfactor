@@ -3,7 +3,10 @@
 Status: 2026-10-08 - Phases 0 to 3 done and released as 0.1.0, tested on
 the Jolla Phone (create, unlock, scan or type in accounts, codes that
 match KeePassXC and a real service's login, auto-lock, backups; cold start
-506 ms median, `docs/spike-results.md`). Next: Phase 4. The name was
+506 ms median, `docs/spike-results.md`). Phase 4 began with the security
+review of 0.1.0 (`docs/security-review-2026-10.md`, 2026-10-08, no finding
+above low); next are its remaining items, files from Documents or
+Downloads, key files, a saved copy and several files. The name was
 chosen on 2026-10-07; a dormant GitHub repository `lanurmi/sailfactor` (an
 integer factoring tool, last commit 2014, never in a store) shares it,
 OpenRepos has no match, the Jolla Store was not searchable without an
@@ -131,9 +134,18 @@ or in KeeOtp's `key=...&size=...&step=...&otpHashMode=...` form; then
 KeePass 2's `TimeOtp-Secret-Base32`, `TimeOtp-Algorithm`,
 `TimeOtp-Length`, `TimeOtp-Period`. SailFactor reads all of them the same
 way and writes only the `otp` URI, as KeePassXC does when it saves
-settings. Two deliberate deviations: KeePassXC shows a TOTP code for a
-`hotp` URI, SailFactor reports it as not supported; a Steam URI without
-`digits` gets Steam's five characters, where KeePassXC shows six.
+settings. Deliberate deviations, each measured against `keepassxc-cli`
+2.7.12 in the Phase 4 review: KeePassXC shows a TOTP code for a `hotp`
+URI, SailFactor reports it as not supported; a Steam URI without `digits`
+gets Steam's five characters, where KeePassXC shows six; a
+`TimeOtp-Length` above 10 gives KeePassXC a longer code and SailFactor an
+unreadable entry (its bound is ten digits); a URI without a secret, or
+with an empty one, gives KeePassXC a code from the empty key and
+SailFactor an unreadable entry; `TOTP Settings` without a seed, or an
+`otp` value that is neither a URI nor KeeOtp's form, shows no TOTP in
+KeePassXC and an unreadable entry in SailFactor; a secret with a percent
+escape other than `%3D` or `%20` is refused, because KeePassXC keeps some
+escapes encoded and reads a different key from them.
 
 ## 6. Unlock design
 
