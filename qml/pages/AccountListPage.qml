@@ -35,7 +35,32 @@ Page {
         })
     }
 
+    // A certificate or a configuration to confirm interrupts: syncing stops
+    // until the user decides. Only the top page asks, a configuration once.
+    function askForSyncDecision() {
+        if (page.status !== PageStatus.Active || sync.state !== Sync.Failed)
+            return
+        if (sync.problem === Sync.CertificateUnknown)
+            pageStack.push(Qt.resolvedUrl("CertificateDialog.qml"))
+        else if (sync.problem === Sync.Unconfirmed && sync.takeConfirmationRequest())
+            pageStack.push(Qt.resolvedUrl("SyncConfirmDialog.qml"))
+    }
+
     allowedOrientations: Orientation.All
+
+    onStatusChanged: {
+        if (status === PageStatus.Active && sync.problem === Sync.Unconfirmed)
+            askForSyncDecision()
+    }
+
+    Connections {
+        target: sync
+        onStateChanged: page.askForSyncDecision()
+    }
+
+    SyncText {
+        id: syncText
+    }
 
     RemorsePopup {
         id: remorse
@@ -62,6 +87,10 @@ Page {
                 title: "SailFactor"
                 description: authenticator.saving ? qsTr("Saving")
                            : authenticator.dirty ? qsTr("Not saved")
+                           : !sync.configured ? ""
+                           : sync.state === Sync.Syncing ? qsTr("Syncing")
+                           : sync.state === Sync.Failed ? syncText.problem(sync.problem)
+                           : sync.state === Sync.Idle ? qsTr("Synced")
                            : ""
             }
 

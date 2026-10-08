@@ -1,10 +1,38 @@
 import QtQuick 2.0
 import Sailfish.Silica 1.0
+import Sailfish.Pickers 1.0
 import harbour.sailfactor 1.0
 import "../components"
 
+// Settings and occasional actions for the open file: sync, merging a copy,
+// saving a copy, deleting it, and help. The account list keeps its pulley
+// menu for the frequent actions.
 Page {
     id: page
+
+    // The file picker closes itself after a selection; the merge page opens
+    // once this page is back.
+    property string pendingMergePath
+    // Set when the delete dialog was accepted; the file is deleted once the
+    // dialog has closed, because deleting locks and returns to the unlock
+    // page, which must not happen while the dialog's transition runs.
+    property bool deleteRequested
+
+    function syncDescription() {
+        if (!sync.configured)
+            return qsTr("Not set up")
+        switch (sync.state) {
+        case Sync.Syncing:
+            return qsTr("Syncing")
+        case Sync.Failed:
+            return syncText.problem(sync.problem)
+        default:
+            return isNaN(sync.lastSynced.getTime())
+                    ? qsTr("Set up")
+                    : qsTr("Last synced %1").arg(Qt.formatDateTime(sync.lastSynced,
+                                                                   Qt.DefaultLocaleShortDate))
+        }
+    }
 
     function saveCopy() {
         var dialog = pageStack.push(Qt.resolvedUrl("SaveCopyDialog.qml"))
@@ -25,11 +53,6 @@ Page {
         })
     }
 
-    // Set when the delete dialog was accepted; the file is deleted once the
-    // dialog has closed, because deleting locks and returns to the unlock
-    // page, which must not happen while the dialog's transition runs.
-    property bool deleteRequested
-
     function deleteFile() {
         var dialog = pageStack.push(Qt.resolvedUrl("DeleteFileDialog.qml"))
         dialog.accepted.connect(function() { page.deleteRequested = true })
@@ -38,11 +61,30 @@ Page {
     allowedOrientations: Orientation.All
 
     onStatusChanged: {
-        if (status !== PageStatus.Active || !deleteRequested)
+        if (status !== PageStatus.Active)
             return
-        deleteRequested = false
-        if (!authenticator.removeFile())
-            Notices.show(qsTr("The file could not be deleted completely"), Notice.Long)
+        if (deleteRequested) {
+            deleteRequested = false
+            if (!authenticator.removeFile())
+                Notices.show(qsTr("The file could not be deleted completely"), Notice.Long)
+        } else if (pendingMergePath.length > 0) {
+            var path = pendingMergePath
+            pendingMergePath = ""
+            pageStack.push(Qt.resolvedUrl("MergePage.qml"), { "path": path })
+        }
+    }
+
+    SyncText {
+        id: syncText
+    }
+
+    Component {
+        id: mergePicker
+
+        FilePickerPage {
+            nameFilters: ["*.kdbx"]
+            onSelectedContentPropertiesChanged: page.pendingMergePath = selectedContentProperties.filePath
+        }
     }
 
     SilicaFlickable {
@@ -53,37 +95,43 @@ Page {
             id: column
 
             width: parent.width
-            spacing: Theme.paddingLarge
 
             PageHeader {
                 title: qsTr("Settings")
             }
 
-            Column {
-                width: parent.width
+            SectionHeader {
+                text: qsTr("Sync")
+            }
 
-                Repeater {
-                    model: [
-                        { "text": qsTr("My code is rejected"), "page": "HelpPage.qml" },
-                        { "text": qsTr("About SailFactor"), "page": "AboutPage.qml" }
-                    ]
+            BackgroundItem {
+                id: syncItem
 
-                    BackgroundItem {
-                        id: link
+                height: Theme.itemSizeMedium
+                enabled: !authenticator.busy
+                onClicked: pageStack.push(Qt.resolvedUrl(
+                    sync.problem === Sync.Unconfirmed ? "SyncConfirmDialog.qml"
+                                                      : "SyncSetupPage.qml"))
 
-                        width: parent.width
-                        onClicked: pageStack.push(Qt.resolvedUrl(modelData.page))
+                TwoLineLabel {
+                    anchors.fill: parent
+                    highlighted: syncItem.highlighted
+                    title: qsTr("Sync with Nextcloud")
+                    description: page.syncDescription()
+                }
+            }
 
-                        Label {
-                            x: Theme.horizontalPageMargin
-                            width: parent.width - 2 * Theme.horizontalPageMargin
-                            anchors.verticalCenter: parent.verticalCenter
-                            textFormat: Text.PlainText
-                            truncationMode: TruncationMode.Fade
-                            color: link.highlighted ? Theme.highlightColor : Theme.primaryColor
-                            text: modelData.text
-                        }
-                    }
+            BackgroundItem {
+                id: syncNowItem
+
+                visible: sync.configured
+                enabled: sync.state !== Sync.Syncing && sync.problem !== Sync.Unconfirmed
+                onClicked: sync.sync()
+
+                TwoLineLabel {
+                    anchors.fill: parent
+                    highlighted: syncNowItem.highlighted
+                    title: qsTr("Sync now")
                 }
             }
 
@@ -91,31 +139,71 @@ Page {
                 text: qsTr("File")
             }
 
-            Column {
-                width: parent.width
+            BackgroundItem {
+                id: mergeItem
 
-                Repeater {
-                    model: [
-                        { "text": qsTr("Save a copy for the computer"), "action": "copy" },
-                        { "text": qsTr("Delete the file"), "action": "delete" }
-                    ]
+                height: Theme.itemSizeMedium
+                enabled: !authenticator.busy
+                onClicked: pageStack.push(mergePicker)
 
-                    BackgroundItem {
-                        id: fileAction
+                TwoLineLabel {
+                    anchors.fill: parent
+                    highlighted: mergeItem.highlighted
+                    title: qsTr("Merge with file")
+                    description: qsTr("Bring in the changes of another copy")
+                }
+            }
 
-                        width: parent.width
-                        enabled: !authenticator.saving
-                        onClicked: modelData.action === "copy" ? page.saveCopy() : page.deleteFile()
+            BackgroundItem {
+                id: copyItem
 
-                        Label {
-                            x: Theme.horizontalPageMargin
-                            width: parent.width - 2 * Theme.horizontalPageMargin
-                            anchors.verticalCenter: parent.verticalCenter
-                            textFormat: Text.PlainText
-                            truncationMode: TruncationMode.Fade
-                            color: fileAction.highlighted ? Theme.highlightColor : Theme.primaryColor
-                            text: modelData.text
-                        }
+                height: Theme.itemSizeMedium
+                enabled: !authenticator.busy
+                onClicked: page.saveCopy()
+
+                TwoLineLabel {
+                    anchors.fill: parent
+                    highlighted: copyItem.highlighted
+                    title: qsTr("Save a copy for the computer")
+                    description: qsTr("To Documents or Downloads")
+                }
+            }
+
+            BackgroundItem {
+                id: deleteItem
+
+                height: Theme.itemSizeMedium
+                enabled: !authenticator.busy
+                onClicked: page.deleteFile()
+
+                TwoLineLabel {
+                    anchors.fill: parent
+                    highlighted: deleteItem.highlighted
+                    title: qsTr("Delete the file")
+                    description: qsTr("With every account, its key file and backups")
+                }
+            }
+
+            SectionHeader {
+                text: qsTr("Help")
+            }
+
+            Repeater {
+                model: [
+                    { "text": qsTr("My code is rejected"), "page": "HelpPage.qml" },
+                    { "text": qsTr("About SailFactor"), "page": "AboutPage.qml" }
+                ]
+
+                BackgroundItem {
+                    id: link
+
+                    width: parent.width
+                    onClicked: pageStack.push(Qt.resolvedUrl(modelData.page))
+
+                    TwoLineLabel {
+                        anchors.fill: parent
+                        highlighted: link.highlighted
+                        title: modelData.text
                     }
                 }
             }
@@ -129,6 +217,11 @@ Page {
                 color: Theme.highlightColor
                 text: qsTr("SailFactor locks after 2 minutes without use and after 30 seconds in the background. A copied code is removed from the clipboard after %1 seconds, and when the file locks.")
                       .arg(authenticator.clipboardClearSeconds)
+            }
+
+            Item {
+                width: 1
+                height: Theme.paddingMedium
             }
 
             Paragraph {

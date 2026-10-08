@@ -72,18 +72,24 @@ DISTFILES += \
     qml/components/Paragraph.qml \
     qml/components/PasswordInput.qml \
     qml/components/ProtectionComboBox.qml \
+    qml/components/SyncText.qml \
+    qml/components/TwoLineLabel.qml \
     qml/cover/CoverPage.qml \
     qml/pages/AboutPage.qml \
     qml/pages/AccountDialog.qml \
     qml/pages/AccountListPage.qml \
     qml/pages/AddedPage.qml \
+    qml/pages/CertificateDialog.qml \
     qml/pages/DeleteFileDialog.qml \
     qml/pages/HelpPage.qml \
+    qml/pages/MergePage.qml \
     qml/pages/NewFileDialog.qml \
     qml/pages/RenameDialog.qml \
     qml/pages/SaveCopyDialog.qml \
     qml/pages/ScanPage.qml \
     qml/pages/SettingsPage.qml \
+    qml/pages/SyncConfirmDialog.qml \
+    qml/pages/SyncSetupPage.qml \
     qml/pages/ThirdPartyPage.qml \
     qml/pages/thirdparty.js \
     qml/pages/UnlockPage.qml \
