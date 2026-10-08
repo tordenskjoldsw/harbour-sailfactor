@@ -9,9 +9,27 @@ What the separation gives: if the password manager's file or its master
 password leaks, the second factor is still safe. What it does not give:
 protection against a compromised phone, which holds both apps.
 
-**Status:** in development, not usable yet. The app skeleton builds and
-passes the Harbour validator; scanning QR codes, generating codes and
-storing accounts come next. The full plan is in [PLAN.md](PLAN.md).
+**Status:** version 0.1.0, the first release, tested on the Jolla Phone
+with Sailfish OS 5.2. Not in the Jolla Store yet; build the RPM yourself as
+described below. The full plan is in [PLAN.md](PLAN.md).
+
+## Features
+
+- Add accounts by scanning the QR code a service shows, or by typing the
+  secret; the first code shows before the account is saved
+- Codes for SHA-1, SHA-256 and SHA-512, 1 to 10 digits, any period, and
+  Steam Guard, the same codes KeePassXC shows for the same file
+- Reads every way KeePassXC and KeePass store TOTP settings in an entry
+- Copy a code with a tap; the clipboard is cleared after 30 seconds
+- Rename and delete accounts, with a recycle bin and entry history as in
+  KeePassXC
+- Locks after 2 minutes without use and after 30 seconds in the
+  background; every change is saved at once, with three backups
+
+Not yet: several files, key files, saving a copy to Documents, and sync
+with Nextcloud. Counter-based codes (HOTP) are not supported. The
+[threat model](docs/threat-model.md) describes what the app protects
+against and where its limits are.
 
 ## Building
 
