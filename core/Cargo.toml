@@ -11,8 +11,20 @@ publish = false
 crate-type = ["staticlib", "rlib"]
 
 [dependencies]
+aes = { version = "0.8", features = ["zeroize"] }
+argon2 = { version = "0.5", default-features = false, features = ["zeroize"] }
+base64 = "0.22"
+cbc = { version = "0.1", features = ["zeroize"] }
+chacha20 = { version = "0.9", features = ["zeroize"] }
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+getrandom = "0.2"
+hmac = "0.12"
+quick-xml = "0.39"
 rqrr = { version = "0.10", default-features = false }
-zeroize = "1.8"
+salsa20 = { version = "0.10", features = ["zeroize"] }
+sha2 = "0.10"
+twofish = { version = "0.7", features = ["zeroize"] }
+zeroize = { version = "1.8", features = ["derive"] }
 
 [profile.release]
 # Unwinding across the C FFI boundary is undefined behavior.
