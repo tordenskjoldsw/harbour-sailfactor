@@ -43,6 +43,9 @@ class Authenticator : public QObject
     Q_PROPERTY(bool sourceFromKdbx3 READ sourceFromKdbx3 NOTIFY sourcePathChanged)
     Q_PROPERTY(QStringList addedOriginals READ addedOriginals NOTIFY addedOriginalsChanged)
     Q_PROPERTY(int accountCount READ accountCount NOTIFY accountCountChanged)
+    // Entries and groups in the file's recycle bin, where deleted accounts
+    // keep their secrets until it is emptied.
+    Q_PROPERTY(int recycleBinItems READ recycleBinItems NOTIFY recycleBinItemsChanged)
     Q_PROPERTY(bool hasPending READ hasPending NOTIFY pendingChanged)
     Q_PROPERTY(QString pendingIssuer READ pendingIssuer NOTIFY pendingChanged)
     Q_PROPERTY(QString pendingName READ pendingName NOTIFY pendingChanged)
@@ -118,6 +121,7 @@ public:
     // The source files of the file added by the last unlock, until it locks.
     QStringList addedOriginals() const;
     int accountCount() const;
+    int recycleBinItems() const;
     bool hasPending() const;
     QString pendingIssuer() const;
     QString pendingName() const;
@@ -156,6 +160,9 @@ public:
     // moving it to the recycle bin.
     Q_INVOKABLE bool deletesPermanently(const QString &accountId);
     Q_INVOKABLE bool deleteAccount(const QString &accountId);
+    // Removes the recycle bin's content for good and saves; the sync then
+    // removes it on the other copies too.
+    Q_INVOKABLE bool emptyRecycleBin();
 
     // Makes a typed secret the pending account; returns a PendingStatus.
     Q_INVOKABLE int preparePending(const QString &secret, int algorithm, int digits, int period,
@@ -205,7 +212,8 @@ signals:
     void errorChanged();
     void savingChanged();
     void mergingChanged();
-    void mergeFinished(int added, int modified, int moved, int deleted);
+    // Counted in accounts, not in entries and groups as the core counts.
+    void mergeFinished(int newAccounts, int removedAccounts, bool changed);
     void mergeNeedsPassword();
     // The copy holds withoutCode passwords without a one-time code and
     // withCode passwords next to one; confirmMerge or cancelMerge decides.
@@ -221,6 +229,7 @@ signals:
     void sourceKeyFilePathChanged();
     void addedOriginalsChanged();
     void accountCountChanged();
+    void recycleBinItemsChanged();
     void pendingChanged();
     void lockedAutomatically();
     // The accounts changed; lists reload.
@@ -246,6 +255,7 @@ private:
     int startUnlocking(const QStringList &sources = QStringList());
     void save();
     void setPending(CorePending pending);
+    // Also updates recycleBinItems.
     void updateAccountCount();
     void lockAutomatically();
     // Clears the clipboard and locks when their deadlines have passed.
@@ -297,6 +307,7 @@ private:
     bool m_sourceFromKdbx3 = false;
     QString m_sourceKeyFilePath;
     int m_accountCount = 0;
+    int m_recycleBinItems = 0;
     PendingLock m_pendingLock = PendingLock::None;
     // SHA-256 of the file as it was unlocked or last saved.
     QByteArray m_fileDigest;

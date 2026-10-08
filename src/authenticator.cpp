@@ -277,6 +277,11 @@ QString Authenticator::pendingText(uint32_t column) const
         : QString();
 }
 
+int Authenticator::recycleBinItems() const
+{
+    return m_recycleBinItems;
+}
+
 int Authenticator::clipboardClearSeconds() const
 {
     return ClipboardGuard::ClearAfterSeconds;
@@ -497,6 +502,13 @@ bool Authenticator::deleteAccount(const QString &accountId)
     });
 }
 
+bool Authenticator::emptyRecycleBin()
+{
+    return change([](SfDatabase *database, int64_t now, bool &changed) {
+        return sf_database_empty_recycle_bin(database, now, &changed);
+    });
+}
+
 int Authenticator::preparePending(const QString &secret, int algorithm, int digits, int period,
                                   bool steam)
 {
@@ -696,6 +708,8 @@ void Authenticator::onMergeOpened(int attempt, int status, qulonglong handle)
 
 void Authenticator::mergeChosenCopy(CoreDatabase source)
 {
+    updateAccountCount();
+    const int before = m_accountCount;
     SfMergeChanges changes{0, 0, 0, 0, false};
     const int status = sf_database_merge(m_database.get(), source.get(), &changes);
     if (status != SF_OK) {
@@ -703,10 +717,13 @@ void Authenticator::mergeChosenCopy(CoreDatabase source)
         return;
     }
     m_mergedPath = m_mergePath;
-    if (changes.added || changes.modified || changes.moved || changes.deleted || changes.metadata)
+    const bool changed = changes.added || changes.modified || changes.moved || changes.deleted
+        || changes.metadata;
+    if (changed)
         commitChange();
-    emit mergeFinished(static_cast<int>(changes.added), static_cast<int>(changes.modified),
-                       static_cast<int>(changes.moved), static_cast<int>(changes.deleted));
+    // The core counts entries and groups alike; the page talks of accounts.
+    const int after = m_accountCount;
+    emit mergeFinished(qMax(0, after - before), qMax(0, before - after), changed);
 }
 
 void Authenticator::confirmMerge()
@@ -798,6 +815,14 @@ void Authenticator::updateAccountCount()
     if (m_database && sf_account_list(m_database.get(), &list) == SF_OK) {
         const CoreAccountList accounts(list);
         count = static_cast<int>(sf_account_list_length(accounts.get()));
+    }
+    size_t binItems = 0;
+    if (!m_database || sf_database_recycle_bin_items(m_database.get(), &binItems) != SF_OK)
+        binItems = 0;
+    const int items = static_cast<int>(binItems);
+    if (m_recycleBinItems != items) {
+        m_recycleBinItems = items;
+        emit recycleBinItemsChanged();
     }
     if (m_accountCount == count)
         return;
