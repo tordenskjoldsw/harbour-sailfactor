@@ -125,7 +125,7 @@ Page {
 
             Paragraph {
                 visible: sync.setupState === Sync.WaitingForBrowser
-                text: qsTr("Log in to Nextcloud in the browser and grant access. Then come back here; SailFactor waits for 20 minutes.")
+                text: qsTr("Log in to Nextcloud in the browser and grant access. Then come back here; SailFactor waits for 20 minutes. If Nextcloud says that the state token does not match, close its older tabs in the browser, cancel here and log in again.")
             }
 
             Button {
