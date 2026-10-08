@@ -1,7 +1,7 @@
 Name:       harbour-sailfactor
 
 Summary:    Authenticator for TOTP codes in a KeePass-compatible file
-Version:    0.1.0
+Version:    0.2.0
 Release:    1
 License:    MIT
 URL:        https://github.com/tordenskjoldsw/harbour-sailfactor
