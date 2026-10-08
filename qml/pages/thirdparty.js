@@ -206,6 +206,12 @@ var packages = [
   "text": 29
  },
  {
+  "name": "sha1",
+  "version": "0.10.7",
+  "license": "MIT",
+  "text": 30
+ },
+ {
   "name": "sha2",
   "version": "0.10.9",
   "license": "MIT",

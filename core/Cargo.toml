@@ -22,6 +22,7 @@ hmac = "0.12"
 quick-xml = "0.39"
 rqrr = { version = "0.10", default-features = false }
 salsa20 = { version = "0.10", features = ["zeroize"] }
+sha1 = { version = "0.10", default-features = false }
 sha2 = "0.10"
 twofish = { version = "0.7", features = ["zeroize"] }
 zeroize = { version = "1.8", features = ["derive"] }
