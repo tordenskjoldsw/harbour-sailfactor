@@ -36,15 +36,18 @@ pub unsafe extern "C" fn sf_database_open(
     out: *mut *mut SfDatabase,
 ) -> i32 {
     // SAFETY: the caller guarantees the pointers as documented.
-    let (Some(out), Some(data), Some(password), Some(key_file)) = (
-        unsafe { out.as_mut() },
+    let Some(out) = (unsafe { out.as_mut() }) else {
+        return SF_INVALID_ARGUMENT;
+    };
+    *out = std::ptr::null_mut();
+    // SAFETY: as above.
+    let (Some(data), Some(password), Some(key_file)) = (
         unsafe { bytes(data, data_length) },
         unsafe { bytes(password, password_length) },
         unsafe { bytes(key_file, key_file_length) },
     ) else {
         return SF_INVALID_ARGUMENT;
     };
-    *out = std::ptr::null_mut();
     let opened = CompositeKey::new(
         has_password.then_some(password),
         (!key_file.is_empty()).then_some(key_file),
@@ -118,11 +121,14 @@ pub unsafe extern "C" fn sf_database_create(
 #[no_mangle]
 pub unsafe extern "C" fn sf_database_save(database: *const SfDatabase, out: *mut SfBytes) -> i32 {
     // SAFETY: the caller guarantees both pointers as documented.
-    let (Some(database), Some(out)) = (unsafe { database.as_ref() }, unsafe { out.as_mut() })
-    else {
+    let Some(out) = (unsafe { out.as_mut() }) else {
         return SF_INVALID_ARGUMENT;
     };
     *out = SfBytes::EMPTY;
+    // SAFETY: as above.
+    let Some(database) = (unsafe { database.as_ref() }) else {
+        return SF_INVALID_ARGUMENT;
+    };
     match database.database.save() {
         Ok(file) => {
             *out = SfBytes::new(file);

@@ -6,7 +6,7 @@ use super::{
     SF_KIND_HOTP, SF_KIND_NO_CODE, SF_KIND_TOTP, SF_KIND_UNREADABLE, SF_NOT_FOUND, SF_OK,
     SF_TEXT_ISSUER, SF_TEXT_NAME,
 };
-use crate::accounts::{self, Account, AccountKind};
+use crate::accounts::{self, Account, AccountKind, UUID_LENGTH};
 use crate::otp::Encoder;
 
 /// Lists the accounts outside the recycle bin in document order.
@@ -53,14 +53,16 @@ pub unsafe extern "C" fn sf_account_list_uuid(
     index: usize,
     uuid_out: *mut u8,
 ) -> i32 {
-    // SAFETY: guaranteed by the caller.
-    let Some(account) = (unsafe { account(list, index) }) else {
-        return SF_NOT_FOUND;
-    };
     if uuid_out.is_null() {
         return SF_INVALID_ARGUMENT;
     }
     // SAFETY: uuid_out is valid for 16 bytes, as the caller guarantees.
+    unsafe { write_uuid(uuid_out, &[0; UUID_LENGTH]) };
+    // SAFETY: guaranteed by the caller.
+    let Some(account) = (unsafe { account(list, index) }) else {
+        return SF_NOT_FOUND;
+    };
+    // SAFETY: as above.
     unsafe { write_uuid(uuid_out, &account.uuid) };
     SF_OK
 }
@@ -121,6 +123,10 @@ pub unsafe extern "C" fn sf_account_list_kind(
     }) else {
         return SF_INVALID_ARGUMENT;
     };
+    *kind_out = 0;
+    *digits_out = 0;
+    *period_out = 0;
+    *encoder_out = 0;
     // SAFETY: guaranteed by the caller.
     let Some(account) = (unsafe { account(list, index) }) else {
         return SF_NOT_FOUND;
@@ -180,19 +186,17 @@ pub unsafe extern "C" fn sf_account_code(
     remaining_out: *mut u32,
 ) -> i32 {
     // SAFETY: guaranteed by the caller.
-    let (Some(database), Some(uuid), Some(code_out), Some(remaining_out)) = (unsafe {
-        (
-            database.as_ref(),
-            read_uuid(uuid),
-            code_out.as_mut(),
-            remaining_out.as_mut(),
-        )
-    }) else {
+    let (Some(code_out), Some(remaining_out)) =
+        (unsafe { (code_out.as_mut(), remaining_out.as_mut()) })
+    else {
         return SF_INVALID_ARGUMENT;
     };
     *code_out = SfString::EMPTY;
     *remaining_out = 0;
-    let Some(now) = unix_seconds(now) else {
+    // SAFETY: guaranteed by the caller.
+    let (Some(database), Some(uuid), Some(now)) =
+        (unsafe { (database.as_ref(), read_uuid(uuid), unix_seconds(now)) })
+    else {
         return SF_INVALID_ARGUMENT;
     };
     match accounts::code(&database.database, &uuid, now) {
@@ -238,6 +242,8 @@ pub unsafe extern "C" fn sf_account_add(
     if uuid_out.is_null() {
         return SF_INVALID_ARGUMENT;
     }
+    // SAFETY: uuid_out is valid for 16 bytes, as the caller guarantees.
+    unsafe { write_uuid(uuid_out, &[0; UUID_LENGTH]) };
     match accounts::add(&mut database.database, issuer, name, &pending.settings, now) {
         Ok(uuid) => {
             // SAFETY: uuid_out is valid for 16 bytes, as the caller guarantees.
@@ -267,13 +273,17 @@ pub unsafe extern "C" fn sf_account_rename(
     changed_out: *mut bool,
 ) -> i32 {
     // SAFETY: guaranteed by the caller.
-    let (Some(database), Some(uuid), Some(issuer), Some(name), Some(changed_out)) = (unsafe {
+    let Some(changed_out) = (unsafe { changed_out.as_mut() }) else {
+        return SF_INVALID_ARGUMENT;
+    };
+    *changed_out = false;
+    // SAFETY: guaranteed by the caller.
+    let (Some(database), Some(uuid), Some(issuer), Some(name)) = (unsafe {
         (
             database.as_mut(),
             read_uuid(uuid),
             utf8(issuer, issuer_length),
             utf8(name, name_length),
-            changed_out.as_mut(),
         )
     }) else {
         return SF_INVALID_ARGUMENT;
@@ -301,9 +311,12 @@ pub unsafe extern "C" fn sf_account_deletes_permanently(
     permanent_out: *mut bool,
 ) -> i32 {
     // SAFETY: guaranteed by the caller.
-    let (Some(database), Some(uuid), Some(permanent_out)) =
-        (unsafe { (database.as_ref(), read_uuid(uuid), permanent_out.as_mut()) })
-    else {
+    let Some(permanent_out) = (unsafe { permanent_out.as_mut() }) else {
+        return SF_INVALID_ARGUMENT;
+    };
+    *permanent_out = false;
+    // SAFETY: guaranteed by the caller.
+    let (Some(database), Some(uuid)) = (unsafe { (database.as_ref(), read_uuid(uuid)) }) else {
         return SF_INVALID_ARGUMENT;
     };
     match accounts::deletes_permanently(&database.database, &uuid) {
@@ -330,9 +343,12 @@ pub unsafe extern "C" fn sf_account_delete(
     permanent_out: *mut bool,
 ) -> i32 {
     // SAFETY: guaranteed by the caller.
-    let (Some(database), Some(uuid), Some(permanent_out)) =
-        (unsafe { (database.as_mut(), read_uuid(uuid), permanent_out.as_mut()) })
-    else {
+    let Some(permanent_out) = (unsafe { permanent_out.as_mut() }) else {
+        return SF_INVALID_ARGUMENT;
+    };
+    *permanent_out = false;
+    // SAFETY: guaranteed by the caller.
+    let (Some(database), Some(uuid)) = (unsafe { (database.as_mut(), read_uuid(uuid)) }) else {
         return SF_INVALID_ARGUMENT;
     };
     match accounts::delete(&mut database.database, &uuid, now) {

@@ -143,16 +143,18 @@ pub unsafe extern "C" fn sf_pending_text(
     out: *mut SfString,
 ) -> i32 {
     // SAFETY: guaranteed by the caller.
-    let (Some(pending), Some(out)) = (unsafe { pending.as_ref() }, unsafe { out.as_mut() }) else {
+    let Some(out) = (unsafe { out.as_mut() }) else {
+        return SF_INVALID_ARGUMENT;
+    };
+    *out = SfString::EMPTY;
+    // SAFETY: guaranteed by the caller.
+    let Some(pending) = (unsafe { pending.as_ref() }) else {
         return SF_INVALID_ARGUMENT;
     };
     *out = match column {
         SF_TEXT_ISSUER => SfString::new(&pending.issuer),
         SF_TEXT_NAME => SfString::new(&pending.name),
-        _ => {
-            *out = SfString::EMPTY;
-            return SF_INVALID_ARGUMENT;
-        }
+        _ => return SF_INVALID_ARGUMENT,
     };
     SF_OK
 }
@@ -172,14 +174,15 @@ pub unsafe extern "C" fn sf_pending_code(
     remaining_out: *mut u32,
 ) -> i32 {
     // SAFETY: guaranteed by the caller.
-    let (Some(pending), Some(code_out), Some(remaining_out)) =
-        (unsafe { (pending.as_ref(), code_out.as_mut(), remaining_out.as_mut()) })
+    let (Some(code_out), Some(remaining_out)) =
+        (unsafe { (code_out.as_mut(), remaining_out.as_mut()) })
     else {
         return SF_INVALID_ARGUMENT;
     };
     *code_out = SfString::EMPTY;
     *remaining_out = 0;
-    let Some(now) = unix_seconds(now) else {
+    // SAFETY: guaranteed by the caller.
+    let (Some(pending), Some(now)) = (unsafe { pending.as_ref() }, unix_seconds(now)) else {
         return SF_INVALID_ARGUMENT;
     };
     *code_out = SfString::new(&otp::code_at(&pending.settings, now));
