@@ -17,4 +17,6 @@ and credit you in the release notes unless you would rather stay anonymous.
 
 ## Supported versions
 
-Only the latest release gets security fixes. There is no release yet.
+Only the latest release gets security fixes. The
+[security review of 0.1.0](docs/security-review-2026-10.md) lists what
+was checked and fixed before 0.2.0.
