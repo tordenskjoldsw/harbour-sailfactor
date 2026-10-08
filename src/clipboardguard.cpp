@@ -51,20 +51,6 @@ void ClipboardGuard::clear()
     m_watchdog.stop();
 }
 
-void ClipboardGuard::keepCopiedValue()
-{
-    if (!m_source)
-        return;
-    const QString current = QGuiApplication::clipboard()->text();
-    if (current.isEmpty() || current != m_source()) {
-        m_source = nullptr;
-        m_deadlineMs = 0;
-        m_watchdog.stop();
-        return;
-    }
-    m_source = [current] { return current; };
-}
-
 void ClipboardGuard::enforceDeadline()
 {
     if (m_source && bootTimeMs() >= m_deadlineMs)
