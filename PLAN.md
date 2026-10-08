@@ -1,15 +1,16 @@
 # SailFactor - Project Plan
 
-Status: 2026-10-08 - Phases 0 to 4 done and released as 0.2.0, tested on
-the Jolla Phone. 0.1.0 was the MVP (create, unlock, scan or type in accounts, codes that
+Status: 2026-10-08 - Phases 0 to 5 done, tested on the Jolla Phone.
+0.1.0 was the MVP (create, unlock, scan or type in accounts, codes that
 match KeePassXC and a real service's login, auto-lock, backups; cold
-start 506 ms median, `docs/spike-results.md`). Phase 4: the security
-review of 0.1.0 (`docs/security-review-2026-10.md`, no finding above low,
-fixes tested on the device), then adding a file from Documents or
-Downloads with a key file, saving a copy and deleting the file, for the
-one file the app keeps (section 14). Phase 5: merging a copy and the
-Nextcloud sync are ported from SailVault and tested on the device
-(`docs/spike-results.md`); next is 0.3.0. The name was
+start 506 ms median, `docs/spike-results.md`). 0.2.0 brought the
+security review of 0.1.0 (`docs/security-review-2026-10.md`, no finding
+above low) and adding a file from Documents or Downloads with a key
+file, saving a copy and deleting the file, for the one file the app
+keeps (section 14). Phase 5: merging a copy and the Nextcloud sync,
+ported from SailVault, with warnings about passwords in the file and
+emptying the recycle bin (section 14). Next: the 0.3.0 release, then
+Phase 6. The name was
 chosen on 2026-10-07; a dormant GitHub repository `lanurmi/sailfactor` (an
 integer factoring tool, last commit 2014, never in a store) shares it,
 OpenRepos has no match, the Jolla Store was not searchable without an
