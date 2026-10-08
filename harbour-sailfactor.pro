@@ -73,7 +73,7 @@ DISTFILES += \
     qml/pages/AccountDialog.qml \
     qml/pages/AccountListPage.qml \
     qml/pages/AddedPage.qml \
-    qml/pages/FilesPage.qml \
+    qml/pages/DeleteFileDialog.qml \
     qml/pages/HelpPage.qml \
     qml/pages/NewFileDialog.qml \
     qml/pages/RenameDialog.qml \

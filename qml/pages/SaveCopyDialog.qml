@@ -3,13 +3,12 @@ import Sailfish.Silica 1.0
 import harbour.sailfactor 1.0
 import "../components"
 
-// Asks where to save a copy of the stored file name. The caller saves it
-// from these properties when accepted.
+// Asks where to save a copy of the app's file. The caller saves it from
+// these properties when accepted.
 Dialog {
     id: dialog
 
-    property string name
-    readonly property bool hasKeyFile: databases.hasKeyFile(name)
+    readonly property bool hasKeyFile: authenticator.hasKeyFile
     readonly property string fileName: nameField.text.trim()
     readonly property int location: locationBox.currentIndex === 1 ? Databases.Downloads
                                                                     : Databases.Documents
@@ -40,7 +39,7 @@ Dialog {
                 width: parent.width
                 label: qsTr("File name")
                 placeholderText: label
-                text: dialog.name
+                text: databases.defaultName
                 errorHighlight: dialog.fileName.length > 0 && !dialog.canAccept
                 description: dialog.exists ? qsTr("A file with this name already exists")
                            : dialog.fileName.length > 0 && !dialog.validName

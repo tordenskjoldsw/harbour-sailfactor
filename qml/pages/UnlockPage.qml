@@ -10,20 +10,15 @@ Page {
     readonly property bool isUnlockPage: true
     readonly property bool unlocking: authenticator.state === Authenticator.Unlocking
     property bool creating
-    // A file from outside the app is unlocked and stored, instead of a
-    // stored file.
-    readonly property bool adding: authenticator.sourcePath.length > 0
-    property var storedNames: databases.names()
-    readonly property string addName: nameField.text.trim()
-    readonly property bool addNameTaken: databases.exists(addName)
-    readonly property bool hasFile: adding || storedNames.length > 0
+    // A file from outside the app is unlocked and stored; only while the
+    // app has no file.
+    readonly property bool adding: !authenticator.hasFile && authenticator.sourcePath.length > 0
+    readonly property bool showsPassword: authenticator.hasFile || adding
     readonly property bool withKeyFile: adding ? authenticator.sourceKeyFilePath.length > 0
-                                               : databases.hasKeyFile(authenticator.databaseName)
+                                               : authenticator.hasKeyFile
     // An added file needs a password: its key file is stored next to it, so
     // the password is all that protects it.
-    readonly property bool canUnlock: adding ? databases.isValidName(addName) && !addNameTaken
-                                               && passwordField.text.length > 0
-                                             : authenticator.databaseName.length > 0
+    readonly property bool canUnlock: adding ? passwordField.text.length > 0 : authenticator.hasFile
     readonly property bool passwordError: authenticator.error === Authenticator.WrongPassword
     readonly property bool keyFileError: adding && authenticator.error === Authenticator.InvalidKeyFile
     readonly property bool fileError: authenticator.error !== Authenticator.NoError && !passwordError
@@ -31,12 +26,6 @@ Page {
 
     function fileName(path) {
         return path.substring(path.lastIndexOf("/") + 1)
-    }
-
-    function baseName(path) {
-        var name = fileName(path)
-        var dot = name.lastIndexOf(".")
-        return dot > 0 ? name.substring(0, dot) : name
     }
 
     function cancelAdding() {
@@ -55,7 +44,7 @@ Page {
         case Authenticator.TooLarge: return qsTr("The file or its settings exceed the supported limits")
         case Authenticator.FileUnreadable: return qsTr("The file cannot be read")
         case Authenticator.FileUnwritable: return qsTr("The file cannot be written")
-        case Authenticator.FileExists: return qsTr("A file with this name already exists")
+        case Authenticator.FileExists: return qsTr("SailFactor already has a file")
         case Authenticator.ChangesDiscarded: return qsTr("Changes that could not be saved were discarded when the file locked")
         default: return ""
         }
@@ -65,7 +54,7 @@ Page {
         var dialog = pageStack.push(Qt.resolvedUrl("NewFileDialog.qml"))
         dialog.accepted.connect(function() {
             page.creating = true
-            authenticator.createFile(dialog.name, dialog.password, dialog.kdfLevel)
+            authenticator.createFile(dialog.password, dialog.kdfLevel)
         })
     }
 
@@ -73,7 +62,7 @@ Page {
         if (!canUnlock || unlocking)
             return
         if (adding)
-            authenticator.addFile(addName, passwordField.text, kdfBox.kdfLevel)
+            authenticator.addFile(passwordField.text, kdfBox.kdfLevel)
         else
             authenticator.unlock(passwordField.text)
         passwordField.text = ""
@@ -84,22 +73,12 @@ Page {
     // Swiping back from the account list leaves the file, so it locks
     // instead of staying open behind a page that looks locked.
     onStatusChanged: {
-        if (status === PageStatus.Active) {
-            if (authenticator.state === Authenticator.Unlocked)
-                authenticator.lock()
-            storedNames = databases.names()
-            // A single file needs no choice, also after the chosen one was
-            // deleted.
-            if (authenticator.databaseName.length === 0 && storedNames.length === 1)
-                authenticator.databaseName = storedNames[0]
-        }
+        if (status === PageStatus.Active && authenticator.state === Authenticator.Unlocked)
+            authenticator.lock()
     }
-
-    Component.onCompleted: nameField.text = baseName(authenticator.sourcePath)
 
     Connections {
         target: authenticator
-        onSourcePathChanged: nameField.text = page.baseName(authenticator.sourcePath)
         onStateChanged: {
             if (authenticator.state !== Authenticator.Unlocking)
                 page.creating = false
@@ -133,24 +112,14 @@ Page {
         anchors.fill: parent
         contentHeight: column.height + Theme.paddingLarge
 
-        // At most three items: adding a file replaces the items that start
-        // something else.
+        // Creating or adding a file is offered by the buttons below while the
+        // app has none.
         PullDownMenu {
             visible: !page.unlocking
 
             MenuItem {
                 text: qsTr("About")
                 onClicked: pageStack.push(Qt.resolvedUrl("AboutPage.qml"))
-            }
-            MenuItem {
-                visible: !page.adding
-                text: qsTr("New file")
-                onClicked: page.createFile()
-            }
-            MenuItem {
-                visible: !page.adding
-                text: qsTr("Add existing file")
-                onClicked: pageStack.push(sourcePicker)
             }
             MenuItem {
                 visible: page.adding && authenticator.sourceKeyFilePath.length > 0
@@ -176,34 +145,25 @@ Page {
                 description: window.lockedAutomatically ? qsTr("Locked automatically") : ""
             }
 
-            ValueButton {
-                visible: page.hasFile
-                label: qsTr("File")
-                value: page.adding ? page.fileName(authenticator.sourcePath)
-                                   : authenticator.databaseName.length > 0 ? authenticator.databaseName
-                                                                           : qsTr("Select")
-                descriptionColor: page.fileError ? Theme.errorColor : Theme.secondaryHighlightColor
-                description: page.fileError ? page.errorText(authenticator.error)
-                           : page.adding ? qsTr("SailFactor keeps its own copy, which other apps cannot read")
-                           : page.withKeyFile ? qsTr("Opens with its stored key file")
-                           : ""
-                onClicked: pageStack.push(page.adding ? sourcePicker : Qt.resolvedUrl("FilesPage.qml"))
+            Paragraph {
+                visible: page.fileError
+                color: Theme.errorColor
+                text: page.errorText(authenticator.error)
             }
 
-            TextField {
-                id: nameField
+            Paragraph {
+                visible: authenticator.hasFile && page.withKeyFile
+                font.pixelSize: Theme.fontSizeSmall
+                color: Theme.secondaryHighlightColor
+                text: qsTr("Opens with its stored key file")
+            }
 
+            ValueButton {
                 visible: page.adding
-                width: parent.width
-                label: qsTr("Name in SailFactor")
-                placeholderText: label
-                errorHighlight: page.addName.length > 0
-                                && (page.addNameTaken || !databases.isValidName(page.addName))
-                description: page.addNameTaken ? qsTr("A file with this name already exists")
-                           : page.addName.length > 0 && !databases.isValidName(page.addName)
-                             ? qsTr("Not a valid name") : ""
-                EnterKey.iconSource: "image://theme/icon-m-enter-next"
-                EnterKey.onClicked: passwordField.focus = true
+                label: qsTr("File")
+                value: page.fileName(authenticator.sourcePath)
+                description: qsTr("SailFactor keeps its own copy, which other apps cannot read")
+                onClicked: pageStack.push(sourcePicker)
             }
 
             Paragraph {
@@ -232,7 +192,7 @@ Page {
             PasswordInput {
                 id: passwordField
 
-                visible: page.hasFile
+                visible: page.showsPassword
                 label: qsTr("Master password")
                 errorText: page.passwordError ? page.errorText(authenticator.error) : ""
                 EnterKey.enabled: page.canUnlock
@@ -245,7 +205,7 @@ Page {
 
             Button {
                 anchors.horizontalCenter: parent.horizontalCenter
-                visible: page.hasFile
+                visible: page.showsPassword
                 text: page.adding ? qsTr("Add and unlock") : qsTr("Unlock")
                 enabled: page.canUnlock
                 onClicked: page.unlock()
@@ -255,25 +215,25 @@ Page {
                 visible: page.adding
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.secondaryHighlightColor
-                text: qsTr("Add the file with your two-factor accounts, not your password database: the separation only helps when the second factor lives in a file of its own, with a different master password. SailFactor stores only files that need a password, because a key file is kept next to the file.")
+                text: qsTr("Add the file with your two-factor accounts, not your password database: the separation only helps when the second factor lives in a file of its own, with a different master password. SailFactor adds only files that need a password, because a key file is kept next to the file.")
             }
 
             Paragraph {
-                visible: !page.hasFile
+                visible: !page.showsPassword
                 color: Theme.highlightColor
                 text: qsTr("SailFactor keeps the codes for two-factor login in an encrypted file of their own, apart from your password manager.")
             }
 
             Button {
                 anchors.horizontalCenter: parent.horizontalCenter
-                visible: !page.hasFile
+                visible: !page.showsPassword
                 text: qsTr("Create file")
                 onClicked: page.createFile()
             }
 
             Button {
                 anchors.horizontalCenter: parent.horizontalCenter
-                visible: !page.hasFile
+                visible: !page.showsPassword
                 text: qsTr("Add existing file")
                 onClicked: pageStack.push(sourcePicker)
             }
