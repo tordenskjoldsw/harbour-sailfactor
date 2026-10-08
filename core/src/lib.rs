@@ -4,6 +4,7 @@
 
 #![deny(unsafe_op_in_unsafe_fn)]
 
+pub mod accounts;
 mod argon2_memory;
 pub mod ffi;
 pub mod kdbx;
