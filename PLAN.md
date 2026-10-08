@@ -426,6 +426,19 @@ Open:
 
 Decided:
 
+- Passwords in the file (2026-10-08): SailFactor never writes a password,
+  but a file added, merged or synced from KeePassXC can hold entries with
+  one. They are kept (criterion 4: a lossless round trip; deleting them
+  would also delete them on the computer at the next sync) and never
+  shown. Against keeping passwords next to the second factor, the app
+  warns instead of refusing: adding or merging a file counts its entries
+  with a password and no one-time code and says that passwords belong in
+  the password manager; a merge asks before it brings them in, with
+  cancelling as the default. Entries with both a password and a code, the
+  usual KeePassXC login entry, are counted and mentioned without a
+  warning. The account list marks an entry with a password and no code as
+  one to keep in the password manager. The sync entry, which holds the
+  Nextcloud app password, is not counted.
 - One file (2026-10-08): SailFactor keeps one authenticator file, as
   other authenticators keep one vault. Several files, as in SailVault,
   were planned for Phase 4 and built, then dropped before any release: a
