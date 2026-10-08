@@ -5,9 +5,10 @@ the Jolla Phone (create, unlock, scan or type in accounts, codes that
 match KeePassXC and a real service's login, auto-lock, backups; cold start
 506 ms median, `docs/spike-results.md`). Phase 4 began with the security
 review of 0.1.0 (`docs/security-review-2026-10.md`, 2026-10-08, no finding
-above low, fixes tested on the device); several files, files added from
-Documents or Downloads with key files, and saved copies are built; next
-is their device test and 0.2.0. The name was
+above low, fixes tested on the device); adding a file from Documents or
+Downloads with a key file, saving a copy and deleting the file are built
+for the one file the app keeps (decided 2026-10-08, section 14); next is
+their device test and 0.2.0. The name was
 chosen on 2026-10-07; a dormant GitHub repository `lanurmi/sailfactor` (an
 integer factoring tool, last commit 2014, never in a store) shares it,
 OpenRepos has no match, the Jolla Store was not searchable without an
@@ -191,8 +192,10 @@ this): `databases/<name>.kdbx`, `keyfiles/<name>.key`, `backups/`. Files
 from Documents or Downloads are added by unlocking them once and copied
 in. An added file must need a password: its key file is stored next to
 it, so a file that opens with the key file alone would be unlocked by
-what is on the disk (criterion 3). The first file a user creates is named
-`SailFactor`, the name the single file of 0.1.0 has. `OrganizationName` and `ApplicationName` in the desktop file never
+what is on the disk (criterion 3). The app keeps one file, always stored
+as `SailFactor` (section 14); a file is added only while there is none,
+and deleting it needs the app unlocked, so nobody removes the accounts
+without the master password. `OrganizationName` and `ApplicationName` in the desktop file never
 change after the first release, since they name the data directory.
 
 ## 8. Sync design
@@ -335,7 +338,8 @@ against KeePassXC and against a service's login.
 
 A security review of the Phase 3 state, with SailVault's review list as
 the checklist, before any Phase 5 code. Then: add an existing file from
-Documents or Downloads, key file support, save a copy, several files.
+Documents or Downloads, key file support, save a copy, delete the file.
+One file only (section 14).
 
 ### Phase 5 - Merge and Nextcloud sync
 
@@ -421,6 +425,17 @@ Open:
 
 Decided:
 
+- One file (2026-10-08): SailFactor keeps one authenticator file, as
+  other authenticators keep one vault. Several files, as in SailVault,
+  were planned for Phase 4 and built, then dropped before any release: a
+  second-factor file per user is the normal case, a file selector and a
+  file list on every unlock would be in the way, and a list invites
+  keeping the password database next to the codes, against the
+  separation. Adding a file from Documents or Downloads, key files,
+  saving a copy and deleting the file stay; the file is always stored
+  under the name `SailFactor`, which the 0.1.0 file already has, so no
+  migration is needed. Switching to another file means saving a copy,
+  deleting the file and adding the other one.
 - Unlock for daily use (2026-10-08): the full master password (and key
   file) every time, as in SailVault, for Phase 3 and the first release.
   Quick unlock stays open above.
