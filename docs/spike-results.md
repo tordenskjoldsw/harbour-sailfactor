@@ -123,3 +123,42 @@ first decoded code, so it includes the camera start and aiming the phone.
 - Decoding every frame at 1280 x 720.
 - The viewfinder shows the camera image only in a band across the middle
   of the page; the scan page in Phase 3 lays it out properly.
+
+## Device test of the MVP (Phase 3, 2026-10-08)
+
+Jolla Phone (2026), Sailfish OS 5.2.0.18, a new file at the Standard KDF
+level with made-up accounts only.
+
+Verified on the device:
+
+- Creating the file and unlocking it; the account list with codes and the
+  countdown ring.
+- Adding an account by scanning a QR code from a computer screen, with its
+  issuer, account name and running first code in the confirmation dialog.
+- Typing in the same secret by hand: both accounts show the same code.
+- Copying a code, renaming and deleting an account; after locking and
+  unlocking, every change is still there.
+- Backups: after four saves, the three newest previous versions are in
+  `backups/`, the oldest rotated out.
+- The file copied from the phone opens in KeePassXC on the computer and
+  shows the same codes.
+- Auto-lock: the app was locked when the display came back on after more
+  than 30 seconds off. A copied code was gone from the clipboard after 30
+  seconds.
+- Portrait and landscape on the list, the dialogs and the settings; the
+  scan page stays in portrait by design.
+
+Cold start, `tools/measure-startup.sh`, 11 launches to the first frame of
+the unlock page:
+
+| Run | Time |
+|-----|------|
+| First launch | 554 ms |
+| Launches 2 to 11, median | 506 ms |
+| Launches 2 to 11, min / max | 466 ms / 562 ms |
+
+70 ms more than the empty Phase 0 app (436 ms); criterion 6 asks for less
+than 1 s. The time from key derivation to the list was not measured
+separately.
+
+Open: a login at a real service with a code from SailFactor.
