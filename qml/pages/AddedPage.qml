@@ -67,14 +67,16 @@ Page {
             Paragraph {
                 visible: page.passwords.withoutCode > 0
                 color: Theme.errorColor
-                text: qsTr("This file holds %n password(s) without a one-time code. SailFactor is for the second factor; passwords belong in your password manager. The account list marks these entries.", "", page.passwords.withoutCode)
+                // No translations exist yet, so counts go after a label
+                // instead of into %n plurals.
+                text: qsTr("Passwords without a one-time code in this file: %1. SailFactor is for the second factor; passwords belong in your password manager. The account list marks these entries.").arg(page.passwords.withoutCode)
             }
 
             Paragraph {
                 visible: page.passwords.withCode > 0
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.secondaryHighlightColor
-                text: qsTr("%n account(s) also store a password next to the code, as KeePassXC login entries do. SailFactor keeps them and never shows them.", "", page.passwords.withCode)
+                text: qsTr("Accounts that also store a password next to the code, as KeePassXC login entries do: %1. SailFactor keeps these passwords and never shows them.").arg(page.passwords.withCode)
             }
 
             Button {

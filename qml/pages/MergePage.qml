@@ -179,14 +179,14 @@ Page {
             Paragraph {
                 visible: page.confirming
                 color: Theme.errorColor
-                text: qsTr("This file holds %n password(s) without a one-time code. SailFactor is for the second factor; passwords belong in your password manager. Merging copies them into SailFactor's file, and a sync takes them to Nextcloud.", "", page.passwordsWithoutCode)
+                text: qsTr("Passwords without a one-time code in this file: %1. SailFactor is for the second factor; passwords belong in your password manager. Merging copies them into SailFactor's file, and a sync takes them to Nextcloud.").arg(page.passwordsWithoutCode)
             }
 
             Paragraph {
                 visible: page.confirming && page.passwordsWithCode > 0
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.secondaryHighlightColor
-                text: qsTr("%n account(s) also store a password next to the code, as KeePassXC login entries do.", "", page.passwordsWithCode)
+                text: qsTr("Accounts that also store a password next to the code, as KeePassXC login entries do: %1.").arg(page.passwordsWithCode)
             }
 
             Button {

@@ -25,7 +25,9 @@ CoverBackground {
             font.pixelSize: Theme.fontSizeSmall
             color: Theme.secondaryColor
             wrapMode: Text.Wrap
-            text: unlocked ? qsTr("%n account(s)", "", authenticator.accountCount) : qsTr("Locked")
+            // No translations exist yet, so the count goes after a label
+            // instead of into a %n plural.
+            text: unlocked ? qsTr("Accounts: %1").arg(authenticator.accountCount) : qsTr("Locked")
         }
     }
 
