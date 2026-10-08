@@ -2,105 +2,63 @@
 #define FRAMESCANNER_H
 
 #include <QAbstractVideoFilter>
-#include <QSize>
-#include <QString>
+#include <QThreadPool>
 
 #include <atomic>
 
-// Looks for a QR code in the camera's viewfinder frames. The runnable maps
-// each frame on the render thread and hands its luma to the Rust core; the
-// results reach this object as queued calls. The payload never leaves the
-// core: QML learns only whether the code is a TOTP account.
+#include "corebridge.h"
+
+// Looks for a QR code with a TOTP account in the camera's viewfinder
+// frames. The runnable maps each frame on the render thread and copies its
+// brightness; a decode on a worker thread turns it into a pending account
+// in the Rust core, and frames that arrive meanwhile are skipped. The QR
+// payload never leaves the core. After a find the scanner pauses until
+// rearm.
 class FrameScanner : public QAbstractVideoFilter
 {
     Q_OBJECT
-    Q_PROPERTY(int frameInterval READ frameInterval WRITE setFrameInterval NOTIFY frameIntervalChanged)
-    Q_PROPERTY(Status status READ status NOTIFY statusChanged)
-    Q_PROPERTY(QString pixelFormat READ pixelFormat NOTIFY frameInfoChanged)
-    Q_PROPERTY(QString handleType READ handleType NOTIFY frameInfoChanged)
-    Q_PROPERTY(QSize frameSize READ frameSize NOTIFY frameInfoChanged)
-    Q_PROPERTY(int bytesPerLine READ bytesPerLine NOTIFY frameInfoChanged)
-    Q_PROPERTY(int planeCount READ planeCount NOTIFY frameInfoChanged)
-    Q_PROPERTY(qreal scanningFramesPerSecond READ scanningFramesPerSecond NOTIFY framesPerSecondChanged)
-    Q_PROPERTY(qreal idleFramesPerSecond READ idleFramesPerSecond NOTIFY framesPerSecondChanged)
-    Q_PROPERTY(int decodeCount READ decodeCount NOTIFY decodeStatsChanged)
-    Q_PROPERTY(int lastDecodeMs READ lastDecodeMs NOTIFY decodeStatsChanged)
-    Q_PROPERTY(int maxDecodeMs READ maxDecodeMs NOTIFY decodeStatsChanged)
-    Q_PROPERTY(qreal averageDecodeMs READ averageDecodeMs NOTIFY decodeStatsChanged)
-    Q_PROPERTY(int lastMapMs READ lastMapMs NOTIFY decodeStatsChanged)
-    Q_PROPERTY(int maxMapMs READ maxMapMs NOTIFY decodeStatsChanged)
-    Q_PROPERTY(qreal averageMapMs READ averageMapMs NOTIFY decodeStatsChanged)
-    Q_PROPERTY(bool totpUri READ totpUri NOTIFY statusChanged)
+    Q_PROPERTY(bool found READ found NOTIFY foundChanged)
+    // The Authenticator::PendingStatus of the last code that is not a TOTP
+    // account, PendingReady while none was seen.
+    Q_PROPERTY(int rejection READ rejection NOTIFY rejectionChanged)
+    Q_PROPERTY(bool unsupportedFrames READ unsupportedFrames NOTIFY unsupportedFramesChanged)
 
 public:
-    enum Status { Waiting, Scanning, Found, Unmappable, UnsupportedFormat };
-    Q_ENUM(Status)
-
     explicit FrameScanner(QObject *parent = nullptr);
+    ~FrameScanner() override;
 
     QVideoFilterRunnable *createFilterRunnable() override;
 
-    int frameInterval() const { return m_frameInterval.load(); }
-    void setFrameInterval(int interval);
-    Status status() const { return m_status; }
-    QString pixelFormat() const { return m_pixelFormat; }
-    QString handleType() const { return m_handleType; }
-    QSize frameSize() const { return m_frameSize; }
-    int bytesPerLine() const { return m_bytesPerLine; }
-    int planeCount() const { return m_planeCount; }
-    qreal scanningFramesPerSecond() const { return m_scanningFramesPerSecond; }
-    qreal idleFramesPerSecond() const { return m_idleFramesPerSecond; }
-    int decodeCount() const { return m_decodeCount; }
-    int lastDecodeMs() const { return m_lastDecodeMs; }
-    int maxDecodeMs() const { return m_maxDecodeMs; }
-    qreal averageDecodeMs() const;
-    int lastMapMs() const { return m_lastMapMs; }
-    int maxMapMs() const { return m_maxMapMs; }
-    qreal averageMapMs() const;
-    bool totpUri() const { return m_totpUri; }
+    bool found() const;
+    int rejection() const;
+    bool unsupportedFrames() const;
 
-    bool paused() const { return m_paused.load(); }
+    // Called on the render thread.
+    bool accepting() const;
+    void decode(QByteArray luma, int width, int height);
 
-    // Resumes scanning after a code was found and resets the statistics.
+    // The account found, for Authenticator::takeScan.
+    CorePending takePending();
+    // Scans again after a find.
     Q_INVOKABLE void rearm();
 
-    // Queued from the render thread.
-    Q_INVOKABLE void recordFrameInfo(const QString &pixelFormat, const QString &handleType,
-                                     const QSize &frameSize, int bytesPerLine, int planeCount);
-    Q_INVOKABLE void recordFramesPerSecond(qreal framesPerSecond, bool scanning);
-    Q_INVOKABLE void recordDecode(int mapMilliseconds, int decodeMilliseconds);
-    Q_INVOKABLE void recordFailure(int status);
-    Q_INVOKABLE void recordCode(bool totpUri);
-
 signals:
-    void frameIntervalChanged();
-    void statusChanged();
-    void frameInfoChanged();
-    void framesPerSecondChanged();
-    void decodeStatsChanged();
+    void foundChanged();
+    void rejectionChanged();
+    void unsupportedFramesChanged();
     void codeFound();
 
 private:
-    void setStatus(Status status);
+    Q_INVOKABLE void onDecoded(int status, qulonglong pending);
+    Q_INVOKABLE void onUnsupportedFrame();
 
-    std::atomic<int> m_frameInterval{2};
+    // One decode at a time; the destructor waits for it.
+    QThreadPool m_pool;
     std::atomic<bool> m_paused{false};
-    Status m_status = Waiting;
-    QString m_pixelFormat;
-    QString m_handleType;
-    QSize m_frameSize;
-    int m_bytesPerLine = 0;
-    int m_planeCount = 0;
-    qreal m_scanningFramesPerSecond = 0;
-    qreal m_idleFramesPerSecond = 0;
-    int m_decodeCount = 0;
-    int m_lastDecodeMs = 0;
-    int m_maxDecodeMs = 0;
-    qint64 m_totalDecodeMs = 0;
-    int m_lastMapMs = 0;
-    int m_maxMapMs = 0;
-    qint64 m_totalMapMs = 0;
-    bool m_totpUri = false;
+    std::atomic<bool> m_decoding{false};
+    CorePending m_pending;
+    int m_rejection = 0;
+    bool m_unsupportedFrames = false;
 };
 
 #endif // FRAMESCANNER_H

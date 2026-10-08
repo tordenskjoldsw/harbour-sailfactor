@@ -10,6 +10,8 @@
 
 #include <sailfishapp.h>
 
+#include "accountlistmodel.h"
+#include "authenticator.h"
 #include "boottime.h"
 #include "framescanner.h"
 #include "sailfactor_core.h"
@@ -36,14 +38,19 @@ int main(int argc, char *argv[])
     QCoreApplication::setOrganizationName(QStringLiteral("de.tordenskjold"));
     QCoreApplication::setApplicationName(QStringLiteral("sailfactor"));
 
+    qmlRegisterType<AccountListModel>("harbour.sailfactor", 1, 0, "AccountListModel");
     qmlRegisterType<FrameScanner>("harbour.sailfactor", 1, 0, "FrameScanner");
+    qmlRegisterUncreatableType<Authenticator>("harbour.sailfactor", 1, 0, "Authenticator",
+                                              QStringLiteral("Use the authenticator context property"));
 
+    Authenticator authenticator;
     QScopedPointer<QQuickView> view(SailfishApp::createView());
     // Development builds carry SemVer build metadata after "+" (branch, time
     // and commit); the About page shows it apart from the release number.
     const QString version = QStringLiteral(APP_VERSION);
     QCoreApplication::setApplicationVersion(version);
     QQmlContext *context = view->rootContext();
+    context->setContextProperty(QStringLiteral("authenticator"), &authenticator);
     context->setContextProperty(QStringLiteral("appVersion"),
                                 version.section(QLatin1Char('+'), 0, 0));
     context->setContextProperty(QStringLiteral("appBuild"), version.section(QLatin1Char('+'), 1));

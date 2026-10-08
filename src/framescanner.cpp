@@ -1,16 +1,15 @@
 #include "framescanner.h"
 
-#include <QDebug>
-#include <QElapsedTimer>
+#include <QCoreApplication>
 #include <QMetaObject>
+#include <QRunnable>
 #include <QVideoFrame>
 
-#include "sailfactor_core.h"
+#include <cstring>
+
+#include "authenticator.h"
 
 namespace {
-
-// Reported in place of a core status when a frame cannot be mapped.
-const int mapFailed = -1;
 
 // Where the brightness of the first pixel sits and how far apart pixels
 // are. For 32-bit RGB the green channel stands in for luma, which is
@@ -58,240 +57,185 @@ bool lumaLayout(QVideoFrame::PixelFormat format, LumaLayout *layout)
     }
 }
 
-template <typename T>
-QString debugText(T value)
+// Copies the brightness of a mapped frame into one byte per pixel, so the
+// frame can be unmapped before the slow decode.
+bool copyLuma(const QVideoFrame &frame, QByteArray &luma)
 {
-    QString text;
-    QDebug(&text).nospace().noquote() << value;
-    return text;
+    LumaLayout layout;
+    if (!lumaLayout(frame.pixelFormat(), &layout))
+        return false;
+    const int width = frame.width();
+    const int height = frame.height();
+    const int stride = frame.bytesPerLine(0);
+    if (width <= 0 || height <= 0 || stride < (width - 1) * layout.pixelStep + layout.offset + 1)
+        return false;
+    luma = QByteArray(width * height, Qt::Uninitialized);
+    const uchar *source = frame.bits(0) + layout.offset;
+    char *target = luma.data();
+    for (int y = 0; y < height; ++y) {
+        const uchar *row = source + qint64(y) * stride;
+        char *out = target + qint64(y) * width;
+        if (layout.pixelStep == 1) {
+            std::memcpy(out, row, static_cast<size_t>(width));
+        } else {
+            for (int x = 0; x < width; ++x)
+                out[x] = static_cast<char>(row[x * layout.pixelStep]);
+        }
+    }
+    return true;
 }
+
+class DecodeTask : public QRunnable
+{
+public:
+    DecodeTask(FrameScanner *scanner, QByteArray luma, int width, int height)
+        : m_scanner(scanner), m_luma(std::move(luma)), m_width(width), m_height(height)
+    {
+    }
+
+    ~DecodeTask() override { secureWipe(m_luma); }
+
+    void run() override
+    {
+        SfPending *found = nullptr;
+        const int status = sf_pending_from_frame(
+            bytePointer(m_luma), static_cast<size_t>(m_luma.size()), uint32_t(m_width),
+            uint32_t(m_height), uint32_t(m_width), 1, &found);
+        CorePending pending(found);
+        // The frame shows the code, secret included.
+        secureWipe(m_luma);
+        // The scanner waits for this task in its destructor and delivers
+        // what was posted, so the pending account is always freed.
+        if (QMetaObject::invokeMethod(m_scanner, "onDecoded", Qt::QueuedConnection,
+                                      Q_ARG(int, status),
+                                      Q_ARG(qulonglong, reinterpret_cast<qulonglong>(pending.get()))))
+            pending.release();
+    }
+
+private:
+    FrameScanner *m_scanner;
+    QByteArray m_luma;
+    int m_width;
+    int m_height;
+};
 
 class FrameScannerRunnable : public QVideoFilterRunnable
 {
 public:
-    explicit FrameScannerRunnable(FrameScanner *scanner) : m_scanner(scanner)
-    {
-        m_fpsTimer.start();
-    }
+    explicit FrameScannerRunnable(FrameScanner *scanner) : m_scanner(scanner) {}
 
     QVideoFrame run(QVideoFrame *input, const QVideoSurfaceFormat &, RunFlags) override
     {
-        countFrame();
-        reportFrameInfo(*input);
-        if (m_scanner->paused() || ++m_skipped < m_scanner->frameInterval())
+        if (!m_scanner->accepting() || !input->map(QAbstractVideoBuffer::ReadOnly))
             return *input;
-        m_skipped = 0;
-        scan(input);
+        QByteArray luma;
+        const bool copied = copyLuma(*input, luma);
+        const int width = input->width();
+        const int height = input->height();
+        input->unmap();
+        if (copied)
+            m_scanner->decode(std::move(luma), width, height);
+        else
+            QMetaObject::invokeMethod(m_scanner, "onUnsupportedFrame", Qt::QueuedConnection);
         return *input;
     }
 
 private:
-    // Counts frames per second separately while scanning and while paused,
-    // which shows what the mapping and decoding cost the viewfinder.
-    void countFrame()
-    {
-        const bool scanning = !m_scanner->paused();
-        if (scanning != m_countingScanning) {
-            m_countingScanning = scanning;
-            m_frames = 0;
-            m_fpsTimer.restart();
-        }
-        ++m_frames;
-        const qint64 elapsed = m_fpsTimer.elapsed();
-        if (elapsed >= 1000) {
-            QMetaObject::invokeMethod(m_scanner, "recordFramesPerSecond", Qt::QueuedConnection,
-                                      Q_ARG(qreal, m_frames * 1000.0 / elapsed),
-                                      Q_ARG(bool, scanning));
-            m_frames = 0;
-            m_fpsTimer.restart();
-        }
-    }
-
-    void reportFrameInfo(const QVideoFrame &frame)
-    {
-        if (frame.pixelFormat() == m_reportedFormat && frame.size() == m_reportedSize
-            && frame.handleType() == m_reportedHandle)
-            return;
-        m_reportedFormat = frame.pixelFormat();
-        m_reportedSize = frame.size();
-        m_reportedHandle = frame.handleType();
-        // Bytes per line and planes are only known while mapped; scan()
-        // reports them again with the real values.
-        report(frame, 0, 0);
-    }
-
-    void report(const QVideoFrame &frame, int bytesPerLine, int planeCount)
-    {
-        QMetaObject::invokeMethod(m_scanner, "recordFrameInfo", Qt::QueuedConnection,
-                                  Q_ARG(QString, debugText(frame.pixelFormat())),
-                                  Q_ARG(QString, debugText(frame.handleType())),
-                                  Q_ARG(QSize, frame.size()), Q_ARG(int, bytesPerLine),
-                                  Q_ARG(int, planeCount));
-    }
-
-    void scan(QVideoFrame *frame)
-    {
-        LumaLayout layout;
-        if (!lumaLayout(frame->pixelFormat(), &layout)) {
-            fail(SF_INVALID_ARGUMENT);
-            return;
-        }
-        QElapsedTimer mapTimer;
-        mapTimer.start();
-        if (!frame->map(QAbstractVideoBuffer::ReadOnly)) {
-            fail(mapFailed);
-            return;
-        }
-        const int mapMilliseconds = int(mapTimer.elapsed());
-        const int bytesPerLine = frame->bytesPerLine(0);
-        if (!m_mappedReported) {
-            report(*frame, bytesPerLine, frame->planeCount());
-            m_mappedReported = true;
-        }
-        const qint64 planeBytes = qint64(bytesPerLine) * frame->height() - layout.offset;
-        SfPending *pending = nullptr;
-        QElapsedTimer timer;
-        timer.start();
-        const int32_t status = planeBytes > 0
-            ? sf_pending_from_frame(frame->bits(0) + layout.offset, size_t(planeBytes),
-                                    uint32_t(frame->width()), uint32_t(frame->height()),
-                                    uint32_t(bytesPerLine), uint32_t(layout.pixelStep), &pending)
-            : SF_INVALID_ARGUMENT;
-        const int milliseconds = int(timer.elapsed());
-        frame->unmap();
-        // The spike only reports what it found; the account itself is not
-        // kept, and its secret is wiped here.
-        sf_pending_free(pending);
-
-        QMetaObject::invokeMethod(m_scanner, "recordDecode", Qt::QueuedConnection,
-                                  Q_ARG(int, mapMilliseconds), Q_ARG(int, milliseconds));
-        switch (status) {
-        case SF_NOT_FOUND:
-        case SF_CORRUPTED:
-            break;
-        case SF_INVALID_ARGUMENT:
-            fail(status);
-            break;
-        default:
-            QMetaObject::invokeMethod(m_scanner, "recordCode", Qt::QueuedConnection,
-                                      Q_ARG(bool, status == SF_OK));
-        }
-    }
-
-    void fail(int status)
-    {
-        QMetaObject::invokeMethod(m_scanner, "recordFailure", Qt::QueuedConnection,
-                                  Q_ARG(int, status));
-    }
-
     FrameScanner *m_scanner;
-    QElapsedTimer m_fpsTimer;
-    int m_frames = 0;
-    bool m_countingScanning = true;
-    int m_skipped = 0;
-    bool m_mappedReported = false;
-    QVideoFrame::PixelFormat m_reportedFormat = QVideoFrame::Format_Invalid;
-    QSize m_reportedSize;
-    QAbstractVideoBuffer::HandleType m_reportedHandle = QAbstractVideoBuffer::NoHandle;
 };
 
 } // namespace
 
-FrameScanner::FrameScanner(QObject *parent) : QAbstractVideoFilter(parent) {}
+FrameScanner::FrameScanner(QObject *parent)
+    : QAbstractVideoFilter(parent)
+{
+    m_pool.setMaxThreadCount(1);
+}
+
+FrameScanner::~FrameScanner()
+{
+    m_paused.store(true);
+    m_pool.waitForDone();
+    // Delivers a result the last decode posted, which frees its account.
+    QCoreApplication::sendPostedEvents(this, QEvent::MetaCall);
+}
 
 QVideoFilterRunnable *FrameScanner::createFilterRunnable()
 {
     return new FrameScannerRunnable(this);
 }
 
-void FrameScanner::setFrameInterval(int interval)
+bool FrameScanner::found() const
 {
-    interval = qMax(1, interval);
-    if (m_frameInterval.exchange(interval) != interval)
-        emit frameIntervalChanged();
+    return static_cast<bool>(m_pending);
 }
 
-qreal FrameScanner::averageDecodeMs() const
+int FrameScanner::rejection() const
 {
-    return m_decodeCount > 0 ? qreal(m_totalDecodeMs) / m_decodeCount : 0;
+    return m_rejection;
 }
 
-qreal FrameScanner::averageMapMs() const
+bool FrameScanner::unsupportedFrames() const
 {
-    return m_decodeCount > 0 ? qreal(m_totalMapMs) / m_decodeCount : 0;
+    return m_unsupportedFrames;
+}
+
+bool FrameScanner::accepting() const
+{
+    return !m_paused.load() && !m_decoding.load();
+}
+
+void FrameScanner::decode(QByteArray luma, int width, int height)
+{
+    if (m_decoding.exchange(true))
+        return;
+    m_pool.start(new DecodeTask(this, std::move(luma), width, height));
+}
+
+CorePending FrameScanner::takePending()
+{
+    CorePending pending = std::move(m_pending);
+    if (pending)
+        emit foundChanged();
+    return pending;
 }
 
 void FrameScanner::rearm()
 {
-    m_decodeCount = 0;
-    m_lastDecodeMs = 0;
-    m_maxDecodeMs = 0;
-    m_totalDecodeMs = 0;
-    m_lastMapMs = 0;
-    m_maxMapMs = 0;
-    m_totalMapMs = 0;
-    m_totpUri = false;
-    emit decodeStatsChanged();
-    setStatus(Waiting);
+    m_pending.reset();
+    if (m_rejection != Authenticator::PendingReady) {
+        m_rejection = Authenticator::PendingReady;
+        emit rejectionChanged();
+    }
+    emit foundChanged();
     m_paused.store(false);
 }
 
-void FrameScanner::recordFrameInfo(const QString &pixelFormat, const QString &handleType,
-                                   const QSize &frameSize, int bytesPerLine, int planeCount)
+void FrameScanner::onDecoded(int status, qulonglong pending)
 {
-    m_pixelFormat = pixelFormat;
-    m_handleType = handleType;
-    m_frameSize = frameSize;
-    if (bytesPerLine > 0) {
-        m_bytesPerLine = bytesPerLine;
-        m_planeCount = planeCount;
+    CorePending account(reinterpret_cast<SfPending *>(pending));
+    m_decoding.store(false);
+    if (m_paused.load() || status == SF_NOT_FOUND || status == SF_CORRUPTED)
+        return;
+    const int rejection = Authenticator::pendingStatus(status);
+    if (rejection != Authenticator::PendingReady) {
+        // Scanning goes on: the next code in view may be the right one.
+        if (m_rejection != rejection) {
+            m_rejection = rejection;
+            emit rejectionChanged();
+        }
+        return;
     }
-    emit frameInfoChanged();
-}
-
-void FrameScanner::recordFramesPerSecond(qreal framesPerSecond, bool scanning)
-{
-    (scanning ? m_scanningFramesPerSecond : m_idleFramesPerSecond) = framesPerSecond;
-    emit framesPerSecondChanged();
-}
-
-void FrameScanner::recordDecode(int mapMilliseconds, int decodeMilliseconds)
-{
-    if (m_paused.load())
-        return;
-    ++m_decodeCount;
-    m_lastDecodeMs = decodeMilliseconds;
-    m_maxDecodeMs = qMax(m_maxDecodeMs, decodeMilliseconds);
-    m_totalDecodeMs += decodeMilliseconds;
-    m_lastMapMs = mapMilliseconds;
-    m_maxMapMs = qMax(m_maxMapMs, mapMilliseconds);
-    m_totalMapMs += mapMilliseconds;
-    emit decodeStatsChanged();
-    if (m_status == Waiting)
-        setStatus(Scanning);
-}
-
-void FrameScanner::recordFailure(int status)
-{
-    if (status == mapFailed)
-        setStatus(Unmappable);
-    else if (status == SF_INVALID_ARGUMENT)
-        setStatus(UnsupportedFormat);
-}
-
-void FrameScanner::recordCode(bool totpUri)
-{
-    if (m_paused.exchange(true))
-        return;
-    m_totpUri = totpUri;
-    setStatus(Found);
+    m_paused.store(true);
+    m_pending = std::move(account);
+    emit foundChanged();
     emit codeFound();
 }
 
-void FrameScanner::setStatus(Status status)
+void FrameScanner::onUnsupportedFrame()
 {
-    if (m_status == status)
+    if (m_unsupportedFrames)
         return;
-    m_status = status;
-    emit statusChanged();
+    m_unsupportedFrames = true;
+    emit unsupportedFramesChanged();
 }

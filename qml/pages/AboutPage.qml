@@ -62,7 +62,7 @@ Page {
 
             Repeater {
                 model: [
-                    qsTr("I am building SailFactor to keep the second factor of my logins apart from my passwords: TOTP codes on my Sailfish phone, in an encrypted file of their own with its own master password."),
+                    qsTr("I built SailFactor to keep the second factor of my logins apart from my passwords: TOTP codes on my Sailfish phone, in an encrypted file of their own with its own master password."),
                     qsTr("The file is a standard KeePass-compatible file, so KeePassXC on a computer can open it and show the same codes. No account, no server, no lock-in."),
                     qsTr("SailFactor is free software under the MIT license. Read the code, check what I claim here and tell me what you find.")
                 ]
@@ -79,6 +79,8 @@ Page {
                 Repeater {
                     model: [
                         { "text": qsTr("Source code"), "url": page.repository },
+                        { "text": qsTr("How SailFactor protects your accounts"),
+                          "url": page.repository + "/blob/main/docs/threat-model.md" },
                         { "text": qsTr("Report a problem"), "url": page.repository + "/issues" },
                         { "text": qsTr("Report a security issue privately"),
                           "url": page.repository + "/security/advisories/new" },

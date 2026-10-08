@@ -4,10 +4,25 @@ CONFIG += sailfishapp
 QT += multimedia
 
 HEADERS += \
+    src/accountlistmodel.h \
+    src/authenticator.h \
+    src/autolock.h \
     src/boottime.h \
+    src/clipboardguard.h \
+    src/corebridge.h \
+    src/coretasks.h \
+    src/databasefile.h \
+    src/databases.h \
     src/framescanner.h
 
 SOURCES += \
+    src/accountlistmodel.cpp \
+    src/authenticator.cpp \
+    src/autolock.cpp \
+    src/clipboardguard.cpp \
+    src/coretasks.cpp \
+    src/databasefile.cpp \
+    src/databases.cpp \
     src/framescanner.cpp \
     src/main.cpp
 
@@ -51,12 +66,20 @@ QMAKE_LFLAGS += -Wl,-z,relro,-z,now -s
 DISTFILES += \
     qml/harbour-sailfactor.qml \
     qml/components/Paragraph.qml \
+    qml/components/PasswordInput.qml \
+    qml/components/ProtectionComboBox.qml \
     qml/cover/CoverPage.qml \
     qml/pages/AboutPage.qml \
-    qml/pages/MainPage.qml \
+    qml/pages/AccountDialog.qml \
+    qml/pages/AccountListPage.qml \
+    qml/pages/HelpPage.qml \
+    qml/pages/NewFileDialog.qml \
+    qml/pages/RenameDialog.qml \
     qml/pages/ScanPage.qml \
+    qml/pages/SettingsPage.qml \
     qml/pages/ThirdPartyPage.qml \
     qml/pages/thirdparty.js \
+    qml/pages/UnlockPage.qml \
     rpm/harbour-sailfactor.spec \
     harbour-sailfactor.desktop
 
