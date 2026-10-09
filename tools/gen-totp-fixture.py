@@ -70,15 +70,15 @@ def entry_xml(index, title, user_name, attributes):
         for key, value, protected in strings)
     return (f"<Entry><UUID>{uuid}</UUID><Times><LastModificationTime>{TIMESTAMP}"
             f"</LastModificationTime><CreationTime>{TIMESTAMP}</CreationTime></Times>{fields}"
-            "<CustomData><Item><Key>SailFactorFixture</Key><Value>totp</Value></Item>"
+            "<CustomData><Item><Key>SailTokenFixture</Key><Value>totp</Value></Item>"
             "</CustomData></Entry>")
 
 
 def content():
     entries = "".join(entry_xml(i, *entry) for i, entry in enumerate(ENTRIES))
     return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            "<KeePassFile><Meta><Generator>SailFactor TOTP fixture</Generator>"
-            "<DatabaseName>SailFactor TOTP fixture</DatabaseName></Meta><Root><Group>"
+            "<KeePassFile><Meta><Generator>SailToken TOTP fixture</Generator>"
+            "<DatabaseName>SailToken TOTP fixture</DatabaseName></Meta><Root><Group>"
             "<UUID>AQEBAQEBAQEBAQEBAQEBAQ==</UUID><Name>Root</Name>"
             f"{entries}</Group></Root></KeePassFile>")
 

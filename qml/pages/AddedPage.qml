@@ -2,7 +2,7 @@ import QtQuick 2.0
 import Sailfish.Silica 1.0
 import "../components"
 
-// Shown once after a file was added: SailFactor now has its own copy, and
+// Shown once after a file was added: SailToken now has its own copy, and
 // the originals outside the app can be deleted or kept.
 Page {
     id: page
@@ -40,8 +40,8 @@ Page {
 
             Paragraph {
                 text: page.withKeyFile
-                      ? qsTr("SailFactor now keeps its own copies of the file and the key file, which other apps cannot read. The original files are still where they were and can be deleted.")
-                      : qsTr("SailFactor now keeps its own copy of the file, which other apps cannot read. The original file is still where it was and can be deleted.")
+                      ? qsTr("SailToken now keeps its own copies of the file and the key file, which other apps cannot read. The original files are still where they were and can be deleted.")
+                      : qsTr("SailToken now keeps its own copy of the file, which other apps cannot read. The original file is still where it was and can be deleted.")
             }
 
             Repeater {
@@ -69,14 +69,14 @@ Page {
                 color: Theme.errorColor
                 // No translations exist yet, so counts go after a label
                 // instead of into %n plurals.
-                text: qsTr("Passwords without a one-time code in this file: %1. SailFactor is for the second factor; passwords belong in your password manager. The account list marks these entries.").arg(page.passwords.withoutCode)
+                text: qsTr("Passwords without a one-time code in this file: %1. SailToken is for the second factor; passwords belong in your password manager. The account list marks these entries.").arg(page.passwords.withoutCode)
             }
 
             Paragraph {
                 visible: page.passwords.withCode > 0
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.secondaryHighlightColor
-                text: qsTr("Accounts that also store a password next to the code, as KeePassXC login entries do: %1. SailFactor keeps these passwords and never shows them.").arg(page.passwords.withCode)
+                text: qsTr("Accounts that also store a password next to the code, as KeePassXC login entries do: %1. SailToken keeps these passwords and never shows them.").arg(page.passwords.withCode)
             }
 
             Button {

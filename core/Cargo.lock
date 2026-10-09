@@ -323,7 +323,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "sailfactor-core"
+name = "sailtoken-core"
 version = "0.1.0"
 dependencies = [
  "aes",

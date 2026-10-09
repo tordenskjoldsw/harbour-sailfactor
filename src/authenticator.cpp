@@ -14,17 +14,17 @@ namespace {
 Authenticator::Error errorFor(int status)
 {
     switch (status) {
-    case SF_OK:
+    case ST_OK:
         return Authenticator::NoError;
-    case SF_INVALID_CREDENTIALS:
+    case ST_INVALID_CREDENTIALS:
         return Authenticator::WrongPassword;
-    case SF_INVALID_KEY_FILE:
+    case ST_INVALID_KEY_FILE:
         return Authenticator::InvalidKeyFile;
-    case SF_NOT_KDBX:
+    case ST_NOT_KDBX:
         return Authenticator::NotKdbx;
-    case SF_UNSUPPORTED_FORMAT:
+    case ST_UNSUPPORTED_FORMAT:
         return Authenticator::UnsupportedFormat;
-    case SF_LIMIT_EXCEEDED:
+    case ST_LIMIT_EXCEEDED:
     case StatusTooLarge:
         return Authenticator::TooLarge;
     case StatusFileUnreadable:
@@ -33,8 +33,8 @@ Authenticator::Error errorFor(int status)
         return Authenticator::FileUnwritable;
     case StatusFileExists:
         return Authenticator::FileExists;
-    case SF_WRITE_FAILED:
-    case SF_RANDOM_UNAVAILABLE:
+    case ST_WRITE_FAILED:
+    case ST_RANDOM_UNAVAILABLE:
         return Authenticator::SaveFailed;
     default:
         return Authenticator::Corrupted;
@@ -46,9 +46,9 @@ bool isKdbx3File(const QString &path)
     QByteArray start;
     uint16_t major = 0;
     uint16_t minor = 0;
-    return readFileStart(path, 12, start) == SF_OK
-        && sf_kdbx_version(bytePointer(start), static_cast<size_t>(start.size()), &major, &minor)
-               == SF_OK
+    return readFileStart(path, 12, start) == ST_OK
+        && st_kdbx_version(bytePointer(start), static_cast<size_t>(start.size()), &major, &minor)
+               == ST_OK
         && major == 3;
 }
 
@@ -58,20 +58,20 @@ struct PasswordCounts {
 };
 
 // Counts the accounts with a password; the sync entry is not an account.
-PasswordCounts passwordCountsOf(const SfDatabase *database)
+PasswordCounts passwordCountsOf(const StDatabase *database)
 {
     PasswordCounts counts;
-    SfAccountList *found = nullptr;
-    if (!database || sf_account_list(database, &found) != SF_OK)
+    StAccountList *found = nullptr;
+    if (!database || st_account_list(database, &found) != ST_OK)
         return counts;
     const CoreAccountList list(found);
-    for (size_t index = 0; index < sf_account_list_length(list.get()); ++index) {
+    for (size_t index = 0; index < st_account_list_length(list.get()); ++index) {
         bool hasPassword = false;
         uint32_t kind = 0, digits = 0, period = 0, encoder = 0;
-        if (sf_account_list_has_password(list.get(), index, &hasPassword) != SF_OK || !hasPassword
-            || sf_account_list_kind(list.get(), index, &kind, &digits, &period, &encoder) != SF_OK)
+        if (st_account_list_has_password(list.get(), index, &hasPassword) != ST_OK || !hasPassword
+            || st_account_list_kind(list.get(), index, &kind, &digits, &period, &encoder) != ST_OK)
             continue;
-        if (kind == SF_KIND_NO_CODE)
+        if (kind == ST_KIND_NO_CODE)
             ++counts.withoutCode;
         else
             ++counts.withCode;
@@ -130,15 +130,15 @@ Authenticator::~Authenticator()
 Authenticator::PendingStatus Authenticator::pendingStatus(int coreStatus)
 {
     switch (coreStatus) {
-    case SF_OK:
+    case ST_OK:
         return PendingReady;
-    case SF_HOTP:
+    case ST_HOTP:
         return Hotp;
-    case SF_UNSUPPORTED_TYPE:
+    case ST_UNSUPPORTED_TYPE:
         return UnsupportedType;
-    case SF_INVALID_SETTINGS:
+    case ST_INVALID_SETTINGS:
         return InvalidSettings;
-    case SF_INVALID_SECRET:
+    case ST_INVALID_SECRET:
         return InvalidSecret;
     default:
         return NotOtpauth;
@@ -261,18 +261,18 @@ bool Authenticator::hasPending() const
 
 QString Authenticator::pendingIssuer() const
 {
-    return pendingText(SF_TEXT_ISSUER);
+    return pendingText(ST_TEXT_ISSUER);
 }
 
 QString Authenticator::pendingName() const
 {
-    return pendingText(SF_TEXT_NAME);
+    return pendingText(ST_TEXT_NAME);
 }
 
 QString Authenticator::pendingText(uint32_t column) const
 {
-    SfString text = emptyCoreString();
-    return m_pending && sf_pending_text(m_pending.get(), column, &text) == SF_OK
+    StString text = emptyCoreString();
+    return m_pending && st_pending_text(m_pending.get(), column, &text) == ST_OK
         ? takeCoreString(text)
         : QString();
 }
@@ -287,13 +287,13 @@ int Authenticator::clipboardClearSeconds() const
     return ClipboardGuard::ClearAfterSeconds;
 }
 
-const SfDatabase *Authenticator::database()
+const StDatabase *Authenticator::database()
 {
     enforceDeadlines();
     return readableDatabase();
 }
 
-const SfDatabase *Authenticator::readableDatabase() const
+const StDatabase *Authenticator::readableDatabase() const
 {
     // A requested lock waits for the running save; nothing is read meanwhile.
     return m_pendingLock != PendingLock::None ? nullptr : m_database.get();
@@ -302,10 +302,10 @@ const SfDatabase *Authenticator::readableDatabase() const
 QString Authenticator::code(const QByteArray &uuid, qint64 now, uint32_t &remaining) const
 {
     remaining = 0;
-    SfString code = emptyCoreString();
-    const SfDatabase *handle = readableDatabase();
-    if (!handle || uuid.size() != SF_UUID_LENGTH
-        || sf_account_code(handle, bytePointer(uuid), now, &code, &remaining) != SF_OK)
+    StString code = emptyCoreString();
+    const StDatabase *handle = readableDatabase();
+    if (!handle || uuid.size() != ST_UUID_LENGTH
+        || st_account_code(handle, bytePointer(uuid), now, &code, &remaining) != ST_OK)
         return QString();
     return takeCoreString(code);
 }
@@ -360,10 +360,10 @@ int Authenticator::startUnlocking(const QStringList &sources)
 void Authenticator::onUnlockFinished(int attempt, int status, qulonglong handle,
                                      const QByteArray &digest)
 {
-    CoreDatabase database(reinterpret_cast<SfDatabase *>(handle));
+    CoreDatabase database(reinterpret_cast<StDatabase *>(handle));
     if (m_state != Unlocking || attempt != m_attempt)
         return;
-    if (status != SF_OK) {
+    if (status != ST_OK) {
         setError(errorFor(status));
         setState(Locked);
         return;
@@ -475,8 +475,8 @@ bool Authenticator::rename(const QString &accountId, const QString &issuer, cons
     const QByteArray uuid = accountUuid(accountId);
     const CoreText issuerText(issuer);
     const CoreText nameText(name);
-    return !uuid.isEmpty() && change([&](SfDatabase *database, int64_t now, bool &changed) {
-        return sf_account_rename(database, bytePointer(uuid), issuerText.data(),
+    return !uuid.isEmpty() && change([&](StDatabase *database, int64_t now, bool &changed) {
+        return st_account_rename(database, bytePointer(uuid), issuerText.data(),
                                  issuerText.size(), nameText.data(), nameText.size(), now,
                                  &changed);
     });
@@ -486,19 +486,19 @@ bool Authenticator::deletesPermanently(const QString &accountId)
 {
     const QByteArray uuid = accountUuid(accountId);
     bool permanent = false;
-    const SfDatabase *handle = database();
+    const StDatabase *handle = database();
     return handle && !uuid.isEmpty()
-        && sf_account_deletes_permanently(handle, bytePointer(uuid), &permanent) == SF_OK
+        && st_account_deletes_permanently(handle, bytePointer(uuid), &permanent) == ST_OK
         && permanent;
 }
 
 bool Authenticator::deleteAccount(const QString &accountId)
 {
     const QByteArray uuid = accountUuid(accountId);
-    return !uuid.isEmpty() && change([&](SfDatabase *database, int64_t now, bool &changed) {
+    return !uuid.isEmpty() && change([&](StDatabase *database, int64_t now, bool &changed) {
         changed = true;
         bool permanent = false;
-        return sf_account_delete(database, bytePointer(uuid), now, &permanent);
+        return st_account_delete(database, bytePointer(uuid), now, &permanent);
     });
 }
 
@@ -508,16 +508,16 @@ bool Authenticator::moveAccount(const QString &accountId, const QString &beforeI
     const QByteArray before = beforeId.isEmpty() ? QByteArray() : accountUuid(beforeId);
     if (uuid.isEmpty() || (!beforeId.isEmpty() && before.isEmpty()))
         return false;
-    return change([&](SfDatabase *database, int64_t, bool &changed) {
-        return sf_account_move(database, bytePointer(uuid),
+    return change([&](StDatabase *database, int64_t, bool &changed) {
+        return st_account_move(database, bytePointer(uuid),
                                before.isEmpty() ? nullptr : bytePointer(before), &changed);
     });
 }
 
 bool Authenticator::emptyRecycleBin()
 {
-    return change([](SfDatabase *database, int64_t now, bool &changed) {
-        return sf_database_empty_recycle_bin(database, now, &changed);
+    return change([](StDatabase *database, int64_t now, bool &changed) {
+        return st_database_empty_recycle_bin(database, now, &changed);
     });
 }
 
@@ -528,13 +528,13 @@ int Authenticator::preparePending(const QString &secret, int algorithm, int digi
     if (!readableDatabase() || digits < 0 || period < 0)
         return InvalidSettings;
     const CoreText secretText(secret);
-    SfPending *pending = nullptr;
-    const int status = sf_pending_from_secret(
+    StPending *pending = nullptr;
+    const int status = st_pending_from_secret(
         secretText.data(), secretText.size(), static_cast<uint32_t>(algorithm),
         static_cast<uint32_t>(digits), static_cast<uint32_t>(period),
-        steam ? SF_ENCODER_STEAM : SF_ENCODER_DECIMAL, &pending);
+        steam ? ST_ENCODER_STEAM : ST_ENCODER_DECIMAL, &pending);
     setPending(CorePending(pending));
-    return status == SF_INVALID_ARGUMENT ? InvalidSettings : pendingStatus(status);
+    return status == ST_INVALID_ARGUMENT ? InvalidSettings : pendingStatus(status);
 }
 
 bool Authenticator::takeScan(FrameScanner *scanner)
@@ -551,10 +551,10 @@ bool Authenticator::takeScan(FrameScanner *scanner)
 QVariantMap Authenticator::pendingCode() const
 {
     QVariantMap result;
-    SfString code = emptyCoreString();
+    StString code = emptyCoreString();
     uint32_t remaining = 0;
     if (m_pending
-        && sf_pending_code(m_pending.get(), unixSeconds(), &code, &remaining) == SF_OK) {
+        && st_pending_code(m_pending.get(), unixSeconds(), &code, &remaining) == ST_OK) {
         result.insert(QStringLiteral("code"), takeCoreString(code));
         result.insert(QStringLiteral("remaining"), remaining);
     }
@@ -580,11 +580,11 @@ bool Authenticator::addPending(const QString &issuer, const QString &name)
         return false;
     const CoreText issuerText(issuer);
     const CoreText nameText(name);
-    const SfPending *pending = m_pending.get();
-    const bool added = change([&](SfDatabase *database, int64_t now, bool &changed) {
+    const StPending *pending = m_pending.get();
+    const bool added = change([&](StDatabase *database, int64_t now, bool &changed) {
         changed = true;
-        uint8_t uuid[SF_UUID_LENGTH];
-        return sf_account_add(database, pending, issuerText.data(), issuerText.size(),
+        uint8_t uuid[ST_UUID_LENGTH];
+        return st_account_add(database, pending, issuerText.data(), issuerText.size(),
                               nameText.data(), nameText.size(), now, uuid);
     });
     if (added)
@@ -597,7 +597,7 @@ bool Authenticator::change(const Edit &edit)
     if (busy() || !database())
         return false;
     bool changed = false;
-    if (edit(m_database.get(), unixSeconds(), changed) != SF_OK)
+    if (edit(m_database.get(), unixSeconds(), changed) != ST_OK)
         return false;
     if (changed)
         commitChange();
@@ -628,7 +628,7 @@ void Authenticator::onSaveFinished(int attempt, int status, const QByteArray &di
                                    bool replacedChangedFile)
 {
     if (attempt == m_attempt && m_state == Unlocked) {
-        if (status == SF_OK) {
+        if (status == ST_OK) {
             m_fileDigest = digest;
             setDirty(false);
             emit saved();
@@ -681,15 +681,15 @@ bool Authenticator::mergeData(const QByteArray &data)
 
 void Authenticator::onMergeOpened(int attempt, int status, qulonglong handle)
 {
-    CoreDatabase source(reinterpret_cast<SfDatabase *>(handle));
+    CoreDatabase source(reinterpret_cast<StDatabase *>(handle));
     setMerging(false);
     // A lock requested meanwhile wins over the merge.
     if (attempt == m_attempt && m_state == Unlocked && m_pendingLock == PendingLock::None) {
         if (m_mergeForSync) {
-            SfMergeChanges changes{0, 0, 0, 0, false};
-            if (status == SF_OK)
-                status = sf_database_merge(m_database.get(), source.get(), &changes);
-            if (status != SF_OK) {
+            StMergeChanges changes{0, 0, 0, 0, false};
+            if (status == ST_OK)
+                status = st_database_merge(m_database.get(), source.get(), &changes);
+            if (status != ST_OK) {
                 emit syncMergeFailed(errorFor(status));
             } else {
                 const bool changed = changes.added || changes.modified || changes.moved
@@ -698,9 +698,9 @@ void Authenticator::onMergeOpened(int attempt, int status, qulonglong handle)
                     commitChange();
                 emit syncMergeFinished(changed);
             }
-        } else if (status == SF_INVALID_CREDENTIALS) {
+        } else if (status == ST_INVALID_CREDENTIALS) {
             emit mergeNeedsPassword();
-        } else if (status != SF_OK) {
+        } else if (status != ST_OK) {
             emit mergeFailed(errorFor(status));
         } else {
             // Passwords without a code would land next to the second
@@ -722,9 +722,9 @@ void Authenticator::mergeChosenCopy(CoreDatabase source)
 {
     updateAccountCount();
     const int before = m_accountCount;
-    SfMergeChanges changes{0, 0, 0, 0, false};
-    const int status = sf_database_merge(m_database.get(), source.get(), &changes);
-    if (status != SF_OK) {
+    StMergeChanges changes{0, 0, 0, 0, false};
+    const int status = st_database_merge(m_database.get(), source.get(), &changes);
+    if (status != ST_OK) {
         emit mergeFailed(errorFor(status));
         return;
     }
@@ -773,9 +773,9 @@ QByteArray Authenticator::fileDigest() const
 
 QByteArray Authenticator::syncSetting(uint32_t setting)
 {
-    const SfDatabase *handle = database();
-    SfString value = emptyCoreString();
-    if (!handle || sf_database_sync_setting(handle, setting, &value) != SF_OK)
+    const StDatabase *handle = database();
+    StString value = emptyCoreString();
+    if (!handle || st_database_sync_setting(handle, setting, &value) != ST_OK)
         return QByteArray();
     return takeCoreBytes(value);
 }
@@ -787,10 +787,10 @@ bool Authenticator::storeSyncSettings(const QString &server, const QString &logi
     const QByteArray serverText = server.toUtf8();
     const QByteArray loginText = loginName.toUtf8();
     const QByteArray pathText = path.toUtf8();
-    return change([&](SfDatabase *database, int64_t now, bool &changed) {
-        uint8_t uuid[SF_UUID_LENGTH];
+    return change([&](StDatabase *database, int64_t now, bool &changed) {
+        uint8_t uuid[ST_UUID_LENGTH];
         changed = true;
-        return sf_database_set_sync_settings(
+        return st_database_set_sync_settings(
             database, bytePointer(serverText), static_cast<size_t>(serverText.size()),
             bytePointer(loginText), static_cast<size_t>(loginText.size()),
             bytePointer(appPassword), static_cast<size_t>(appPassword.size()),
@@ -823,13 +823,13 @@ void Authenticator::resumePendingLock()
 void Authenticator::updateAccountCount()
 {
     int count = 0;
-    SfAccountList *list = nullptr;
-    if (m_database && sf_account_list(m_database.get(), &list) == SF_OK) {
+    StAccountList *list = nullptr;
+    if (m_database && st_account_list(m_database.get(), &list) == ST_OK) {
         const CoreAccountList accounts(list);
-        count = static_cast<int>(sf_account_list_length(accounts.get()));
+        count = static_cast<int>(st_account_list_length(accounts.get()));
     }
     size_t binItems = 0;
-    if (!m_database || sf_database_recycle_bin_items(m_database.get(), &binItems) != SF_OK)
+    if (!m_database || st_database_recycle_bin_items(m_database.get(), &binItems) != ST_OK)
         binItems = 0;
     const int items = static_cast<int>(binItems);
     if (m_recycleBinItems != items) {

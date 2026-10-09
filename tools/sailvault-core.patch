@@ -1,4 +1,4 @@
-# SailFactor's deliberate deviations from the KDBX code copied from
+# SailToken's deliberate deviations from the KDBX code copied from
 # SailVault (tools/diff-sailvault-core.sh applies this to SailVault's
 # files before comparing). The app's name in what KeePassXC shows (the
 # Generator of a new file, the sync entry's title and attribute names)
@@ -11,7 +11,7 @@
          "Meta",
          vec![
 -            text("Generator", "SailVault"),
-+            text("Generator", "SailFactor"),
++            text("Generator", "SailToken"),
              text("DatabaseName", name),
              text("DatabaseNameChanged", time),
              text("DatabaseDescription", ""),
@@ -22,14 +22,14 @@
  use super::xml::{Element, Node};
  
 -const MARKER_KEY: &str = "SailVault/Sync";
-+const MARKER_KEY: &str = "SailFactor/Sync";
++const MARKER_KEY: &str = "SailToken/Sync";
  const MARKER_VALUE: &str = "Nextcloud";
 -pub const SYNC_TITLE: &str = "Nextcloud sync (SailVault)";
 -const PATH_KEY: &str = "SailVault sync path";
 -const CERTIFICATE_KEY: &str = "SailVault sync certificate";
-+pub const SYNC_TITLE: &str = "Nextcloud sync (SailFactor)";
-+const PATH_KEY: &str = "SailFactor sync path";
-+const CERTIFICATE_KEY: &str = "SailFactor sync certificate";
++pub const SYNC_TITLE: &str = "Nextcloud sync (SailToken)";
++const PATH_KEY: &str = "SailToken sync path";
++const CERTIFICATE_KEY: &str = "SailToken sync certificate";
  
  /// Where and how the database syncs: the Nextcloud server URL, the login
  /// name and app password, the file's path in the user's files, and the

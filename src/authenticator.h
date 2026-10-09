@@ -76,11 +76,11 @@ public:
     };
     Q_ENUM(Error)
 
-    // Key derivation levels of a new file, as SF_KDF_* in the core.
+    // Key derivation levels of a new file, as ST_KDF_* in the core.
     enum KdfLevel {
-        KdfStandard = SF_KDF_STANDARD,
-        KdfHigh = SF_KDF_HIGH,
-        KdfMaximum = SF_KDF_MAXIMUM
+        KdfStandard = ST_KDF_STANDARD,
+        KdfHigh = ST_KDF_HIGH,
+        KdfMaximum = ST_KDF_MAXIMUM
     };
     Q_ENUM(KdfLevel)
 
@@ -129,7 +129,7 @@ public:
 
     // Null when locked, when a lock deadline has passed or while a requested
     // lock waits for a save.
-    const SfDatabase *database();
+    const StDatabase *database();
     // The code of an account at now and the seconds left; empty when it has
     // none. Checks no deadline, so a lock cannot happen in between: call
     // database() first.
@@ -161,7 +161,7 @@ public:
     Q_INVOKABLE bool deletesPermanently(const QString &accountId);
     Q_INVOKABLE bool deleteAccount(const QString &accountId);
     // Moves the account in front of beforeId, or to the end when beforeId is
-    // empty, and saves; the order is SailFactor's own, stored in the file.
+    // empty, and saves; the order is SailToken's own, stored in the file.
     Q_INVOKABLE bool moveAccount(const QString &accountId, const QString &beforeId);
     // Removes the recycle bin's content for good and saves; the sync then
     // removes it on the other copies too.
@@ -202,7 +202,7 @@ public:
     bool mergeData(const QByteArray &data);
     // SHA-256 of the file as unlocked or last saved.
     QByteArray fileDigest() const;
-    // One SF_SYNC_* setting as UTF-8, empty without a sync entry. The caller
+    // One ST_SYNC_* setting as UTF-8, empty without a sync entry. The caller
     // wipes it.
     QByteArray syncSetting(uint32_t setting);
     // Stores the sync settings in the file's sync entry and saves.
@@ -250,7 +250,7 @@ private slots:
 
 private:
     // One edit of the file; sets changed when it changed anything.
-    using Edit = std::function<int(SfDatabase *database, int64_t now, bool &changed)>;
+    using Edit = std::function<int(StDatabase *database, int64_t now, bool &changed)>;
 
     // Runs an edit and saves when it changed anything; refused while a save
     // runs or when locked.
@@ -282,7 +282,7 @@ private:
     void commitChange();
     void setDirty(bool dirty);
     QString pendingText(uint32_t column) const;
-    const SfDatabase *readableDatabase() const;
+    const StDatabase *readableDatabase() const;
     void setAddedOriginals(const QStringList &paths);
     void clearSource();
     void updateHasFile();

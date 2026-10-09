@@ -15,7 +15,7 @@ CoverBackground {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
             textFormat: Text.PlainText
-            text: "SailFactor"
+            text: "SailToken"
         }
 
         Label {

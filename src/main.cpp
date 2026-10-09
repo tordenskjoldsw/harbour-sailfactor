@@ -15,7 +15,7 @@
 #include "boottime.h"
 #include "databases.h"
 #include "framescanner.h"
-#include "sailfactor_core.h"
+#include "sailtoken_core.h"
 #include "sync.h"
 
 namespace {
@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
                                 version.section(QLatin1Char('+'), 0, 0));
     context->setContextProperty(QStringLiteral("appBuild"), version.section(QLatin1Char('+'), 1));
     context->setContextProperty(QStringLiteral("coreVersion"),
-                                QString::fromLatin1(sf_core_version()));
+                                QString::fromLatin1(st_core_version()));
 
     if (app->arguments().contains(QStringLiteral("--startup-trace")))
         printFirstFrameTimestamp(view.data());

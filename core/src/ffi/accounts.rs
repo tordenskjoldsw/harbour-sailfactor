@@ -1,10 +1,10 @@
 //! Listing accounts, their codes, and adding, renaming and deleting them.
 
 use super::{
-    account_status, kdbx_status, read_uuid, unix_seconds, utf8, write_uuid, SfAccountList,
-    SfDatabase, SfPending, SfString, SF_ENCODER_DECIMAL, SF_ENCODER_STEAM, SF_INVALID_ARGUMENT,
-    SF_KIND_HOTP, SF_KIND_NO_CODE, SF_KIND_TOTP, SF_KIND_UNREADABLE, SF_NOT_FOUND, SF_OK,
-    SF_TEXT_ISSUER, SF_TEXT_NAME,
+    account_status, kdbx_status, read_uuid, unix_seconds, utf8, write_uuid, StAccountList,
+    StDatabase, StPending, StString, ST_ENCODER_DECIMAL, ST_ENCODER_STEAM, ST_INVALID_ARGUMENT,
+    ST_KIND_HOTP, ST_KIND_NO_CODE, ST_KIND_TOTP, ST_KIND_UNREADABLE, ST_NOT_FOUND, ST_OK,
+    ST_TEXT_ISSUER, ST_TEXT_NAME,
 };
 use crate::accounts::{self, Account, AccountKind, UUID_LENGTH};
 use crate::otp::Encoder;
@@ -14,22 +14,22 @@ use crate::otp::Encoder;
 /// # Safety
 ///
 /// `database` must be a live handle; `out` valid for one write. Release the
-/// list with `sf_account_list_free`.
+/// list with `st_account_list_free`.
 #[no_mangle]
-pub unsafe extern "C" fn sf_account_list(
-    database: *const SfDatabase,
-    out: *mut *mut SfAccountList,
+pub unsafe extern "C" fn st_account_list(
+    database: *const StDatabase,
+    out: *mut *mut StAccountList,
 ) -> i32 {
     // SAFETY: the caller guarantees both pointers as documented.
     let (Some(database), Some(out)) = (unsafe { database.as_ref() }, unsafe { out.as_mut() })
     else {
-        return SF_INVALID_ARGUMENT;
+        return ST_INVALID_ARGUMENT;
     };
     *out = std::ptr::null_mut();
     match accounts::list(&database.database) {
         Ok(accounts) => {
-            *out = Box::into_raw(Box::new(SfAccountList { accounts }));
-            SF_OK
+            *out = Box::into_raw(Box::new(StAccountList { accounts }));
+            ST_OK
         }
         Err(error) => kdbx_status(error),
     }
@@ -39,7 +39,7 @@ pub unsafe extern "C" fn sf_account_list(
 ///
 /// `list` must be a live list.
 #[no_mangle]
-pub unsafe extern "C" fn sf_account_list_length(list: *const SfAccountList) -> usize {
+pub unsafe extern "C" fn st_account_list_length(list: *const StAccountList) -> usize {
     // SAFETY: guaranteed by the caller.
     unsafe { list.as_ref() }.map_or(0, |list| list.accounts.len())
 }
@@ -48,64 +48,64 @@ pub unsafe extern "C" fn sf_account_list_length(list: *const SfAccountList) -> u
 ///
 /// `list` must be a live list; `uuid_out` valid for writes of 16 bytes.
 #[no_mangle]
-pub unsafe extern "C" fn sf_account_list_uuid(
-    list: *const SfAccountList,
+pub unsafe extern "C" fn st_account_list_uuid(
+    list: *const StAccountList,
     index: usize,
     uuid_out: *mut u8,
 ) -> i32 {
     if uuid_out.is_null() {
-        return SF_INVALID_ARGUMENT;
+        return ST_INVALID_ARGUMENT;
     }
     // SAFETY: uuid_out is valid for 16 bytes, as the caller guarantees.
     unsafe { write_uuid(uuid_out, &[0; UUID_LENGTH]) };
     // SAFETY: guaranteed by the caller.
     let Some(account) = (unsafe { account(list, index) }) else {
-        return SF_NOT_FOUND;
+        return ST_NOT_FOUND;
     };
     // SAFETY: as above.
     unsafe { write_uuid(uuid_out, &account.uuid) };
-    SF_OK
+    ST_OK
 }
 
-/// The issuer (`SF_TEXT_ISSUER`) or account name (`SF_TEXT_NAME`).
+/// The issuer (`ST_TEXT_ISSUER`) or account name (`ST_TEXT_NAME`).
 ///
 /// # Safety
 ///
 /// `list` must be a live list; `out` valid for one write. Release the text
-/// with `sf_string_free`.
+/// with `st_string_free`.
 #[no_mangle]
-pub unsafe extern "C" fn sf_account_list_text(
-    list: *const SfAccountList,
+pub unsafe extern "C" fn st_account_list_text(
+    list: *const StAccountList,
     index: usize,
     column: u32,
-    out: *mut SfString,
+    out: *mut StString,
 ) -> i32 {
     // SAFETY: guaranteed by the caller.
     let Some(out) = (unsafe { out.as_mut() }) else {
-        return SF_INVALID_ARGUMENT;
+        return ST_INVALID_ARGUMENT;
     };
-    *out = SfString::EMPTY;
+    *out = StString::EMPTY;
     // SAFETY: guaranteed by the caller.
     let Some(account) = (unsafe { account(list, index) }) else {
-        return SF_NOT_FOUND;
+        return ST_NOT_FOUND;
     };
     *out = match column {
-        SF_TEXT_ISSUER => SfString::new(&account.issuer),
-        SF_TEXT_NAME => SfString::new(&account.name),
-        _ => return SF_INVALID_ARGUMENT,
+        ST_TEXT_ISSUER => StString::new(&account.issuer),
+        ST_TEXT_NAME => StString::new(&account.name),
+        _ => return ST_INVALID_ARGUMENT,
     };
-    SF_OK
+    ST_OK
 }
 
-/// What an account can show (`SF_KIND_*`); for `SF_KIND_TOTP` also its
-/// digits, period in seconds and `SF_ENCODER_*`, zero otherwise.
+/// What an account can show (`ST_KIND_*`); for `ST_KIND_TOTP` also its
+/// digits, period in seconds and `ST_ENCODER_*`, zero otherwise.
 ///
 /// # Safety
 ///
 /// `list` must be a live list; each output valid for one write.
 #[no_mangle]
-pub unsafe extern "C" fn sf_account_list_kind(
-    list: *const SfAccountList,
+pub unsafe extern "C" fn st_account_list_kind(
+    list: *const StAccountList,
     index: usize,
     kind_out: *mut u32,
     digits_out: *mut u32,
@@ -121,7 +121,7 @@ pub unsafe extern "C" fn sf_account_list_kind(
             encoder_out.as_mut(),
         )
     }) else {
-        return SF_INVALID_ARGUMENT;
+        return ST_INVALID_ARGUMENT;
     };
     *kind_out = 0;
     *digits_out = 0;
@@ -129,7 +129,7 @@ pub unsafe extern "C" fn sf_account_list_kind(
     *encoder_out = 0;
     // SAFETY: guaranteed by the caller.
     let Some(account) = (unsafe { account(list, index) }) else {
-        return SF_NOT_FOUND;
+        return ST_NOT_FOUND;
     };
     let (kind, digits, period, encoder) = match account.kind {
         AccountKind::Totp {
@@ -137,23 +137,23 @@ pub unsafe extern "C" fn sf_account_list_kind(
             period,
             encoder,
         } => (
-            SF_KIND_TOTP,
+            ST_KIND_TOTP,
             u32::from(digits),
             period,
             match encoder {
-                Encoder::Decimal => SF_ENCODER_DECIMAL,
-                Encoder::Steam => SF_ENCODER_STEAM,
+                Encoder::Decimal => ST_ENCODER_DECIMAL,
+                Encoder::Steam => ST_ENCODER_STEAM,
             },
         ),
-        AccountKind::Hotp => (SF_KIND_HOTP, 0, 0, 0),
-        AccountKind::Unreadable => (SF_KIND_UNREADABLE, 0, 0, 0),
-        AccountKind::NoCode => (SF_KIND_NO_CODE, 0, 0, 0),
+        AccountKind::Hotp => (ST_KIND_HOTP, 0, 0, 0),
+        AccountKind::Unreadable => (ST_KIND_UNREADABLE, 0, 0, 0),
+        AccountKind::NoCode => (ST_KIND_NO_CODE, 0, 0, 0),
     };
     *kind_out = kind;
     *digits_out = digits;
     *period_out = period;
     *encoder_out = encoder;
-    SF_OK
+    ST_OK
 }
 
 /// Moves the account with `uuid` in front of the account `before`, or to
@@ -166,28 +166,28 @@ pub unsafe extern "C" fn sf_account_list_kind(
 /// valid for 16 bytes; `before` null or valid for 16 bytes; `changed_out`
 /// valid for one write.
 #[no_mangle]
-pub unsafe extern "C" fn sf_account_move(
-    database: *mut SfDatabase,
+pub unsafe extern "C" fn st_account_move(
+    database: *mut StDatabase,
     uuid: *const u8,
     before: *const u8,
     changed_out: *mut bool,
 ) -> i32 {
     // SAFETY: guaranteed by the caller.
     let Some(changed_out) = (unsafe { changed_out.as_mut() }) else {
-        return SF_INVALID_ARGUMENT;
+        return ST_INVALID_ARGUMENT;
     };
     *changed_out = false;
     // SAFETY: guaranteed by the caller.
     let (Some(database), Some(uuid)) = (unsafe { database.as_mut() }, unsafe { read_uuid(uuid) })
     else {
-        return SF_INVALID_ARGUMENT;
+        return ST_INVALID_ARGUMENT;
     };
     // SAFETY: as above; null means the end.
     let before = unsafe { read_uuid(before) };
     match accounts::move_account(&mut database.database, &uuid, before.as_ref()) {
         Ok(changed) => {
             *changed_out = changed;
-            SF_OK
+            ST_OK
         }
         Err(error) => kdbx_status(error),
     }
@@ -200,22 +200,22 @@ pub unsafe extern "C" fn sf_account_move(
 ///
 /// `list` must be a live list; `has_password_out` valid for one write.
 #[no_mangle]
-pub unsafe extern "C" fn sf_account_list_has_password(
-    list: *const SfAccountList,
+pub unsafe extern "C" fn st_account_list_has_password(
+    list: *const StAccountList,
     index: usize,
     has_password_out: *mut bool,
 ) -> i32 {
     // SAFETY: guaranteed by the caller.
     let Some(has_password_out) = (unsafe { has_password_out.as_mut() }) else {
-        return SF_INVALID_ARGUMENT;
+        return ST_INVALID_ARGUMENT;
     };
     *has_password_out = false;
     // SAFETY: guaranteed by the caller.
     let Some(account) = (unsafe { account(list, index) }) else {
-        return SF_NOT_FOUND;
+        return ST_NOT_FOUND;
     };
     *has_password_out = account.has_password;
-    SF_OK
+    ST_OK
 }
 
 /// Releases a list and wipes its names.
@@ -224,7 +224,7 @@ pub unsafe extern "C" fn sf_account_list_has_password(
 ///
 /// `list` must be null or a list from this API that has not been freed.
 #[no_mangle]
-pub unsafe extern "C" fn sf_account_list_free(list: *mut SfAccountList) {
+pub unsafe extern "C" fn st_account_list_free(list: *mut StAccountList) {
     if !list.is_null() {
         // SAFETY: the list came from Box::into_raw in this module.
         drop(unsafe { Box::from_raw(list) });
@@ -238,34 +238,34 @@ pub unsafe extern "C" fn sf_account_list_free(list: *mut SfAccountList) {
 ///
 /// `database` must be a live handle; `uuid` valid for 16 bytes; `code_out`
 /// and `remaining_out` valid for one write each. Release the code with
-/// `sf_string_free`.
+/// `st_string_free`.
 #[no_mangle]
-pub unsafe extern "C" fn sf_account_code(
-    database: *const SfDatabase,
+pub unsafe extern "C" fn st_account_code(
+    database: *const StDatabase,
     uuid: *const u8,
     now: i64,
-    code_out: *mut SfString,
+    code_out: *mut StString,
     remaining_out: *mut u32,
 ) -> i32 {
     // SAFETY: guaranteed by the caller.
     let (Some(code_out), Some(remaining_out)) =
         (unsafe { (code_out.as_mut(), remaining_out.as_mut()) })
     else {
-        return SF_INVALID_ARGUMENT;
+        return ST_INVALID_ARGUMENT;
     };
-    *code_out = SfString::EMPTY;
+    *code_out = StString::EMPTY;
     *remaining_out = 0;
     // SAFETY: guaranteed by the caller.
     let (Some(database), Some(uuid), Some(now)) =
         (unsafe { (database.as_ref(), read_uuid(uuid), unix_seconds(now)) })
     else {
-        return SF_INVALID_ARGUMENT;
+        return ST_INVALID_ARGUMENT;
     };
     match accounts::code(&database.database, &uuid, now) {
         Ok((code, remaining)) => {
-            *code_out = SfString::new(&code);
+            *code_out = StString::new(&code);
             *remaining_out = remaining;
-            SF_OK
+            ST_OK
         }
         Err(error) => account_status(error),
     }
@@ -280,9 +280,9 @@ pub unsafe extern "C" fn sf_account_code(
 /// `pending` a live handle; `issuer` and `name` UTF-8 of their lengths;
 /// `uuid_out` valid for writes of 16 bytes.
 #[no_mangle]
-pub unsafe extern "C" fn sf_account_add(
-    database: *mut SfDatabase,
-    pending: *const SfPending,
+pub unsafe extern "C" fn st_account_add(
+    database: *mut StDatabase,
+    pending: *const StPending,
     issuer: *const u8,
     issuer_length: usize,
     name: *const u8,
@@ -299,10 +299,10 @@ pub unsafe extern "C" fn sf_account_add(
             utf8(name, name_length),
         )
     }) else {
-        return SF_INVALID_ARGUMENT;
+        return ST_INVALID_ARGUMENT;
     };
     if uuid_out.is_null() {
-        return SF_INVALID_ARGUMENT;
+        return ST_INVALID_ARGUMENT;
     }
     // SAFETY: uuid_out is valid for 16 bytes, as the caller guarantees.
     unsafe { write_uuid(uuid_out, &[0; UUID_LENGTH]) };
@@ -310,7 +310,7 @@ pub unsafe extern "C" fn sf_account_add(
         Ok(uuid) => {
             // SAFETY: uuid_out is valid for 16 bytes, as the caller guarantees.
             unsafe { write_uuid(uuid_out, &uuid) };
-            SF_OK
+            ST_OK
         }
         Err(error) => account_status(error),
     }
@@ -324,8 +324,8 @@ pub unsafe extern "C" fn sf_account_add(
 /// valid for 16 bytes; `issuer` and `name` UTF-8 of their lengths;
 /// `changed_out` valid for one write.
 #[no_mangle]
-pub unsafe extern "C" fn sf_account_rename(
-    database: *mut SfDatabase,
+pub unsafe extern "C" fn st_account_rename(
+    database: *mut StDatabase,
     uuid: *const u8,
     issuer: *const u8,
     issuer_length: usize,
@@ -336,7 +336,7 @@ pub unsafe extern "C" fn sf_account_rename(
 ) -> i32 {
     // SAFETY: guaranteed by the caller.
     let Some(changed_out) = (unsafe { changed_out.as_mut() }) else {
-        return SF_INVALID_ARGUMENT;
+        return ST_INVALID_ARGUMENT;
     };
     *changed_out = false;
     // SAFETY: guaranteed by the caller.
@@ -348,18 +348,18 @@ pub unsafe extern "C" fn sf_account_rename(
             utf8(name, name_length),
         )
     }) else {
-        return SF_INVALID_ARGUMENT;
+        return ST_INVALID_ARGUMENT;
     };
     match accounts::rename(&mut database.database, &uuid, issuer, name, now) {
         Ok(changed) => {
             *changed_out = changed;
-            SF_OK
+            ST_OK
         }
         Err(error) => kdbx_status(error),
     }
 }
 
-/// Whether `sf_account_delete` would remove the account for good, so the
+/// Whether `st_account_delete` would remove the account for good, so the
 /// confirmation can say so.
 ///
 /// # Safety
@@ -367,24 +367,24 @@ pub unsafe extern "C" fn sf_account_rename(
 /// `database` must be a live handle; `uuid` valid for 16 bytes;
 /// `permanent_out` valid for one write.
 #[no_mangle]
-pub unsafe extern "C" fn sf_account_deletes_permanently(
-    database: *const SfDatabase,
+pub unsafe extern "C" fn st_account_deletes_permanently(
+    database: *const StDatabase,
     uuid: *const u8,
     permanent_out: *mut bool,
 ) -> i32 {
     // SAFETY: guaranteed by the caller.
     let Some(permanent_out) = (unsafe { permanent_out.as_mut() }) else {
-        return SF_INVALID_ARGUMENT;
+        return ST_INVALID_ARGUMENT;
     };
     *permanent_out = false;
     // SAFETY: guaranteed by the caller.
     let (Some(database), Some(uuid)) = (unsafe { (database.as_ref(), read_uuid(uuid)) }) else {
-        return SF_INVALID_ARGUMENT;
+        return ST_INVALID_ARGUMENT;
     };
     match accounts::deletes_permanently(&database.database, &uuid) {
         Ok(permanent) => {
             *permanent_out = permanent;
-            SF_OK
+            ST_OK
         }
         Err(error) => kdbx_status(error),
     }
@@ -398,25 +398,25 @@ pub unsafe extern "C" fn sf_account_deletes_permanently(
 /// `database` must be a live handle not in use by another thread; `uuid`
 /// valid for 16 bytes; `permanent_out` valid for one write.
 #[no_mangle]
-pub unsafe extern "C" fn sf_account_delete(
-    database: *mut SfDatabase,
+pub unsafe extern "C" fn st_account_delete(
+    database: *mut StDatabase,
     uuid: *const u8,
     now: i64,
     permanent_out: *mut bool,
 ) -> i32 {
     // SAFETY: guaranteed by the caller.
     let Some(permanent_out) = (unsafe { permanent_out.as_mut() }) else {
-        return SF_INVALID_ARGUMENT;
+        return ST_INVALID_ARGUMENT;
     };
     *permanent_out = false;
     // SAFETY: guaranteed by the caller.
     let (Some(database), Some(uuid)) = (unsafe { (database.as_mut(), read_uuid(uuid)) }) else {
-        return SF_INVALID_ARGUMENT;
+        return ST_INVALID_ARGUMENT;
     };
     match accounts::delete(&mut database.database, &uuid, now) {
         Ok(permanent) => {
             *permanent_out = permanent;
-            SF_OK
+            ST_OK
         }
         Err(error) => kdbx_status(error),
     }
@@ -428,21 +428,21 @@ pub unsafe extern "C" fn sf_account_delete(
 ///
 /// `database` must be a live handle; `items_out` valid for one write.
 #[no_mangle]
-pub unsafe extern "C" fn sf_database_recycle_bin_items(
-    database: *const SfDatabase,
+pub unsafe extern "C" fn st_database_recycle_bin_items(
+    database: *const StDatabase,
     items_out: *mut usize,
 ) -> i32 {
     // SAFETY: guaranteed by the caller.
     let Some(items_out) = (unsafe { items_out.as_mut() }) else {
-        return SF_INVALID_ARGUMENT;
+        return ST_INVALID_ARGUMENT;
     };
     *items_out = 0;
     // SAFETY: guaranteed by the caller.
     let Some(database) = (unsafe { database.as_ref() }) else {
-        return SF_INVALID_ARGUMENT;
+        return ST_INVALID_ARGUMENT;
     };
     *items_out = accounts::recycle_bin_items(&database.database);
-    SF_OK
+    ST_OK
 }
 
 /// Removes everything in the recycle bin for good, as KeePassXC does, and
@@ -453,24 +453,24 @@ pub unsafe extern "C" fn sf_database_recycle_bin_items(
 /// `database` must be a live handle not in use by another thread;
 /// `changed_out` valid for one write.
 #[no_mangle]
-pub unsafe extern "C" fn sf_database_empty_recycle_bin(
-    database: *mut SfDatabase,
+pub unsafe extern "C" fn st_database_empty_recycle_bin(
+    database: *mut StDatabase,
     now: i64,
     changed_out: *mut bool,
 ) -> i32 {
     // SAFETY: guaranteed by the caller.
     let Some(changed_out) = (unsafe { changed_out.as_mut() }) else {
-        return SF_INVALID_ARGUMENT;
+        return ST_INVALID_ARGUMENT;
     };
     *changed_out = false;
     // SAFETY: guaranteed by the caller.
     let Some(database) = (unsafe { database.as_mut() }) else {
-        return SF_INVALID_ARGUMENT;
+        return ST_INVALID_ARGUMENT;
     };
     match accounts::empty_recycle_bin(&mut database.database, now) {
         Ok(changed) => {
             *changed_out = changed;
-            SF_OK
+            ST_OK
         }
         Err(error) => kdbx_status(error),
     }
@@ -479,7 +479,7 @@ pub unsafe extern "C" fn sf_database_empty_recycle_bin(
 /// # Safety
 ///
 /// `list` must be null or a live list.
-unsafe fn account<'a>(list: *const SfAccountList, index: usize) -> Option<&'a Account> {
+unsafe fn account<'a>(list: *const StAccountList, index: usize) -> Option<&'a Account> {
     // SAFETY: guaranteed by the caller.
     unsafe { list.as_ref() }.and_then(|list| list.accounts.get(index))
 }

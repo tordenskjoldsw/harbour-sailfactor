@@ -4,7 +4,7 @@ use std::io::Write as _;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
-use sailfactor_core::kdbx::{
+use sailtoken_core::kdbx::{
     version, Argon2Variant, Cipher, CompositeKey, Compression, Database, Entry, Group, KdbxError,
     KdfLevel, KdfParameters, NewField, OuterHeader,
 };
@@ -308,7 +308,7 @@ fn tampered_files_are_rejected() {
     );
 }
 
-fn titles(entries: &[sailfactor_core::kdbx::ListedEntry<'_>]) -> Vec<String> {
+fn titles(entries: &[sailtoken_core::kdbx::ListedEntry<'_>]) -> Vec<String> {
     entries
         .iter()
         .map(|listed| value(&listed.entry, "Title"))
@@ -387,7 +387,7 @@ struct TempFile(PathBuf);
 impl TempFile {
     fn write(name: &str, data: &[u8]) -> Self {
         let path =
-            std::env::temp_dir().join(format!("sailfactor-{}-{name}.kdbx", std::process::id()));
+            std::env::temp_dir().join(format!("sailtoken-{}-{name}.kdbx", std::process::id()));
         std::fs::write(&path, data).unwrap();
         Self(path)
     }

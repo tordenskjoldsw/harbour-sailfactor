@@ -172,7 +172,7 @@ QString Sync::certificateFingerprint() const
 
 QString Sync::storedCertificate() const
 {
-    return colonHex(m_authenticator->syncSetting(SF_SYNC_CERTIFICATE));
+    return colonHex(m_authenticator->syncSetting(ST_SYNC_CERTIFICATE));
 }
 
 void Sync::confirmConfiguration()
@@ -215,22 +215,22 @@ bool Sync::certificateReplaced() const
 
 QString Sync::defaultPath() const
 {
-    return QStringLiteral("/SailFactor/") + Databases::DefaultName + QStringLiteral(".kdbx");
+    return QStringLiteral("/SailToken/") + Databases::DefaultName + QStringLiteral(".kdbx");
 }
 
 QString Sync::storedServer() const
 {
-    return QString::fromUtf8(m_authenticator->syncSetting(SF_SYNC_SERVER));
+    return QString::fromUtf8(m_authenticator->syncSetting(ST_SYNC_SERVER));
 }
 
 QString Sync::storedPath() const
 {
-    return QString::fromUtf8(m_authenticator->syncSetting(SF_SYNC_PATH));
+    return QString::fromUtf8(m_authenticator->syncSetting(ST_SYNC_PATH));
 }
 
 QString Sync::storedLoginName() const
 {
-    return QString::fromUtf8(m_authenticator->syncSetting(SF_SYNC_USER));
+    return QString::fromUtf8(m_authenticator->syncSetting(ST_SYNC_USER));
 }
 
 void Sync::changePath(const QString &path)
@@ -239,15 +239,15 @@ void Sync::changePath(const QString &path)
     if (!m_configured || remote.length() < 2 || remote == storedPath())
         return;
     abortSync();
-    QByteArray password = m_authenticator->syncSetting(SF_SYNC_APP_PASSWORD);
+    QByteArray password = m_authenticator->syncSetting(ST_SYNC_APP_PASSWORD);
     // Saving the entry starts the next sync.
-    const QByteArray pin = m_authenticator->syncSetting(SF_SYNC_CERTIFICATE);
+    const QByteArray pin = m_authenticator->syncSetting(ST_SYNC_CERTIFICATE);
     const bool stored = m_authenticator->storeSyncSettings(storedServer(), storedLoginName(), password,
                                                    remote, pin);
     secureWipe(password);
     if (stored)
-        confirm(configurationDigest(m_authenticator->syncSetting(SF_SYNC_SERVER),
-                                    m_authenticator->syncSetting(SF_SYNC_USER), remote.toUtf8(), pin));
+        confirm(configurationDigest(m_authenticator->syncSetting(ST_SYNC_SERVER),
+                                    m_authenticator->syncSetting(ST_SYNC_USER), remote.toUtf8(), pin));
     setSetupState(stored ? SetupDone : SetupFailed, stored ? NoProblem : ServerProblem);
 }
 
@@ -314,7 +314,7 @@ void Sync::stop()
 void Sync::updateConfigured()
 {
     const bool configured = m_authenticator->state() == Authenticator::Unlocked
-        && !m_authenticator->syncSetting(SF_SYNC_SERVER).isEmpty();
+        && !m_authenticator->syncSetting(ST_SYNC_SERVER).isEmpty();
     if (m_configured == configured)
         return;
     m_configured = configured;
@@ -328,15 +328,15 @@ QString Sync::settingsGroup() const
 
 bool Sync::loadAccount()
 {
-    QByteArray password = m_authenticator->syncSetting(SF_SYNC_APP_PASSWORD);
-    const QByteArray serverText = m_authenticator->syncSetting(SF_SYNC_SERVER);
-    const QByteArray loginText = m_authenticator->syncSetting(SF_SYNC_USER);
-    const QByteArray pathText = m_authenticator->syncSetting(SF_SYNC_PATH);
+    QByteArray password = m_authenticator->syncSetting(ST_SYNC_APP_PASSWORD);
+    const QByteArray serverText = m_authenticator->syncSetting(ST_SYNC_SERVER);
+    const QByteArray loginText = m_authenticator->syncSetting(ST_SYNC_USER);
+    const QByteArray pathText = m_authenticator->syncSetting(ST_SYNC_PATH);
     NextcloudClient::Account account;
     account.server = QUrl(QString::fromUtf8(serverText));
     account.loginName = QString::fromUtf8(loginText);
     account.appPassword = password;
-    account.pinnedCertificate = m_authenticator->syncSetting(SF_SYNC_CERTIFICATE);
+    account.pinnedCertificate = m_authenticator->syncSetting(ST_SYNC_CERTIFICATE);
     secureWipe(password);
     m_configuration = configurationDigest(serverText, loginText, pathText,
                                           account.pinnedCertificate);
@@ -505,7 +505,7 @@ void Sync::upload()
 {
     QByteArray data;
     if (readBoundedFile(Databases::databasePath(Databases::DefaultName), MaxDatabaseBytes, data)
-        != SF_OK) {
+        != ST_OK) {
         finish(ServerProblem);
         return;
     }
@@ -757,10 +757,10 @@ void Sync::trustCertificate()
     }
     if (m_state != Failed || m_problem != CertificateUnknown)
         return;
-    QByteArray password = m_authenticator->syncSetting(SF_SYNC_APP_PASSWORD);
-    const QByteArray server = m_authenticator->syncSetting(SF_SYNC_SERVER);
-    const QByteArray loginName = m_authenticator->syncSetting(SF_SYNC_USER);
-    const QByteArray path = m_authenticator->syncSetting(SF_SYNC_PATH);
+    QByteArray password = m_authenticator->syncSetting(ST_SYNC_APP_PASSWORD);
+    const QByteArray server = m_authenticator->syncSetting(ST_SYNC_SERVER);
+    const QByteArray loginName = m_authenticator->syncSetting(ST_SYNC_USER);
+    const QByteArray path = m_authenticator->syncSetting(ST_SYNC_PATH);
     // The new pin is saved and confirmed, and the save starts the next sync.
     if (m_authenticator->storeSyncSettings(QString::fromUtf8(server), QString::fromUtf8(loginName),
                                    password, QString::fromUtf8(path), m_fingerprint))

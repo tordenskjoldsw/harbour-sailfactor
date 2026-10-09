@@ -8,7 +8,7 @@
 #include <atomic>
 #include <memory>
 
-#include "sailfactor_core.h"
+#include "sailtoken_core.h"
 
 class Authenticator;
 
@@ -88,10 +88,10 @@ private:
 class MergeTask : public QRunnable
 {
 public:
-    MergeTask(Authenticator *authenticator, int attempt, const SfDatabase *database,
+    MergeTask(Authenticator *authenticator, int attempt, const StDatabase *database,
               const QString &path);
     // A copy already read, such as a download.
-    MergeTask(Authenticator *authenticator, int attempt, const SfDatabase *database,
+    MergeTask(Authenticator *authenticator, int attempt, const StDatabase *database,
               QByteArray data);
     MergeTask(Authenticator *authenticator, int attempt, const QString &path, QByteArray password,
               const QString &keyFilePath);
@@ -102,7 +102,7 @@ public:
 private:
     Authenticator *m_authenticator;
     int m_attempt;
-    const SfDatabase *m_database;
+    const StDatabase *m_database;
     QString m_path;
     QByteArray m_password;
     QString m_keyFilePath;
@@ -115,7 +115,7 @@ private:
 class SaveTask : public QRunnable
 {
 public:
-    SaveTask(Authenticator *authenticator, int attempt, const SfDatabase *database,
+    SaveTask(Authenticator *authenticator, int attempt, const StDatabase *database,
              const QString &databasePath, const QByteArray &expectedDigest);
 
     void run() override;
@@ -123,7 +123,7 @@ public:
 private:
     Authenticator *m_authenticator;
     int m_attempt;
-    const SfDatabase *m_database;
+    const StDatabase *m_database;
     QString m_databasePath;
     QByteArray m_expectedDigest;
 };

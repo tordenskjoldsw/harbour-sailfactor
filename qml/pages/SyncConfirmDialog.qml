@@ -26,7 +26,7 @@ Dialog {
             }
 
             Paragraph {
-                text: qsTr("This file holds sync settings that were not set up on this phone, for example from a copy on another device. SailFactor would upload the encrypted file to this server. Only accept if it is your Nextcloud.")
+                text: qsTr("This file holds sync settings that were not set up on this phone, for example from a copy on another device. SailToken would upload the encrypted file to this server. Only accept if it is your Nextcloud.")
             }
 
             DetailItem {

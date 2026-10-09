@@ -5,7 +5,7 @@
 #include <QString>
 
 // File I/O for databases, key files and exports, mostly on pool threads.
-// Negative statuses complement the core's SF_* codes.
+// Negative statuses complement the core's ST_* codes.
 enum DatabaseFileStatus {
     StatusFileUnreadable = -1,
     StatusTooLarge = -2,

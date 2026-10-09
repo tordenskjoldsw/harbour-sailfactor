@@ -88,7 +88,7 @@ Page {
             width: parent.width
 
             PageHeader {
-                title: "SailFactor"
+                title: "SailToken"
                 description: authenticator.saving ? qsTr("Saving")
                            : authenticator.dirty ? qsTr("Not saved")
                            : !sync.configured ? ""

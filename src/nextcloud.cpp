@@ -19,7 +19,7 @@ const int InactivityTimeoutMs = 30 * 1000;
 const int PollIntervalMs = 3 * 1000;
 // Nextcloud deletes a login flow after 20 minutes.
 const qint64 LoginLifetimeMs = 20 * 60 * 1000;
-const QByteArray UserAgent = QByteArrayLiteral("SailFactor (Sailfish OS)");
+const QByteArray UserAgent = QByteArrayLiteral("SailToken (Sailfish OS)");
 
 // Errors a pinned self-signed certificate raises. With the exact
 // certificate pinned, its name does not need to match the host either.

@@ -4,7 +4,7 @@
 Lists the crates linked into the app (cargo tree without dev, build and
 proc-macro dependencies, for the device target) and the Rust standard
 library, and takes each license text from the vendored sources. Where a
-crate offers a choice, SailFactor uses the MIT terms.
+crate offers a choice, SailToken uses the MIT terms.
 
 Usage: tools/gen-third-party-licenses.py          # rewrite the file
        tools/gen-third-party-licenses.py --check  # fail if it is outdated
@@ -37,13 +37,13 @@ def linked_crates():
     for line in output.splitlines():
         package, license_expression = line.replace(" (*)", "").split("|", 1)
         name, version = package.split()[:2]
-        if name != "sailfactor-core":
+        if name != "sailtoken-core":
             crates[(name, version.lstrip("v"))] = license_expression.strip()
     return sorted(crates.items())
 
 
 def chosen_licenses(name, expression):
-    """The terms SailFactor uses: MIT where offered, otherwise only what
+    """The terms SailToken uses: MIT where offered, otherwise only what
     CHOSEN lists. Every part of an AND expression applies, such as rqrr's
     "(MIT OR Apache-2.0) AND ISC" for the code it ported from quirc."""
     chosen = []

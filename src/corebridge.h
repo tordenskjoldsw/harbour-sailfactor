@@ -8,7 +8,7 @@
 #include <memory>
 #include <string.h>
 
-#include "sailfactor_core.h"
+#include "sailtoken_core.h"
 
 // Helpers for calling the Rust core: buffers, UUIDs, strings and handles.
 
@@ -34,31 +34,31 @@ inline const uint8_t *bytePointer(const QByteArray &bytes)
 inline QByteArray accountUuid(const QString &accountId)
 {
     const QByteArray uuid = QByteArray::fromHex(accountId.toLatin1());
-    return uuid.size() == SF_UUID_LENGTH ? uuid : QByteArray();
+    return uuid.size() == ST_UUID_LENGTH ? uuid : QByteArray();
 }
 
 // Converts a core string and releases it; the core wipes its copy.
-inline QString takeCoreString(SfString string)
+inline QString takeCoreString(StString string)
 {
     const QString text = QString::fromUtf8(reinterpret_cast<const char *>(string.data),
                                            static_cast<int>(string.length));
-    sf_string_free(string);
+    st_string_free(string);
     return text;
 }
 
 // The same as bytes, for values such as an app password that go on to
 // another library; the caller wipes them.
-inline QByteArray takeCoreBytes(SfString string)
+inline QByteArray takeCoreBytes(StString string)
 {
     const QByteArray bytes(reinterpret_cast<const char *>(string.data),
                            static_cast<int>(string.length));
-    sf_string_free(string);
+    st_string_free(string);
     return bytes;
 }
 
-inline SfString emptyCoreString()
+inline StString emptyCoreString()
 {
-    return SfString{nullptr, 0};
+    return StString{nullptr, 0};
 }
 
 // The core takes times in seconds since the Unix epoch.
@@ -72,10 +72,10 @@ template <typename Handle, void (*Free)(Handle *)>
 struct CoreFree {
     void operator()(Handle *handle) const { Free(handle); }
 };
-using CoreDatabase = std::unique_ptr<SfDatabase, CoreFree<SfDatabase, sf_database_free>>;
-using CorePending = std::unique_ptr<SfPending, CoreFree<SfPending, sf_pending_free>>;
+using CoreDatabase = std::unique_ptr<StDatabase, CoreFree<StDatabase, st_database_free>>;
+using CorePending = std::unique_ptr<StPending, CoreFree<StPending, st_pending_free>>;
 using CoreAccountList =
-    std::unique_ptr<SfAccountList, CoreFree<SfAccountList, sf_account_list_free>>;
+    std::unique_ptr<StAccountList, CoreFree<StAccountList, st_account_list_free>>;
 
 // A file from the core, released when it goes out of scope.
 class CoreBytes
@@ -84,9 +84,9 @@ public:
     CoreBytes() = default;
     CoreBytes(const CoreBytes &) = delete;
     CoreBytes &operator=(const CoreBytes &) = delete;
-    ~CoreBytes() { sf_bytes_free(m_bytes); }
+    ~CoreBytes() { st_bytes_free(m_bytes); }
 
-    SfBytes *out() { return &m_bytes; }
+    StBytes *out() { return &m_bytes; }
     // Valid while this object lives.
     QByteArray view() const
     {
@@ -95,7 +95,7 @@ public:
     }
 
 private:
-    SfBytes m_bytes{nullptr, 0};
+    StBytes m_bytes{nullptr, 0};
 };
 
 #endif // COREBRIDGE_H

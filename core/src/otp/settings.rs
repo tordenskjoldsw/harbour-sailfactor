@@ -26,9 +26,9 @@ pub const MAX_URI_LENGTH: usize = 2048;
 const MAX_QUERY_ITEMS: usize = 32;
 const STEAM_ENCODER: &str = "steam";
 const LEGACY_STEAM: &str = "S";
-// KeePassXC names an entry without a title after itself; SailFactor does
+// KeePassXC names an entry without a title after itself; SailToken does
 // the same with its own name.
-const UNTITLED: &str = "SailFactor";
+const UNTITLED: &str = "SailToken";
 const NO_USER_NAME: &str = "none";
 
 /// A scanned or typed `otpauth://totp/` URI. The issuer comes from the

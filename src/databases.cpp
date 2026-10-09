@@ -6,7 +6,7 @@
 
 #include "corebridge.h"
 #include "databasefile.h"
-#include "sailfactor_core.h"
+#include "sailtoken_core.h"
 
 namespace {
 
@@ -42,7 +42,7 @@ int copyFile(const QString &from, const QString &to, qint64 maxBytes)
 {
     QByteArray data;
     int status = readBoundedFile(from, maxBytes, data);
-    if (status == SF_OK)
+    if (status == ST_OK)
         status = createNewFile(to, data);
     secureWipe(data);
     return status;
@@ -52,7 +52,7 @@ int copyFile(const QString &from, const QString &to, qint64 maxBytes)
 
 // Also the database name inside a file created here, which KeePassXC
 // shows.
-const QString Databases::DefaultName = QStringLiteral("SailFactor");
+const QString Databases::DefaultName = QStringLiteral("SailToken");
 
 Databases::Databases(QObject *parent)
     : QObject(parent)
@@ -98,7 +98,7 @@ int Databases::claim(const QString &name)
     const QString keyFile = keyFilePath(name);
     if (QFileInfo::exists(keyFile) && !QFile::remove(keyFile))
         return StatusFileUnwritable;
-    return SF_OK;
+    return ST_OK;
 }
 
 bool Databases::isValidName(const QString &name)
@@ -146,13 +146,13 @@ Databases::CopyResult Databases::saveCopy(const QString &name, int location,
     int status = copyFile(databasePath(name), path, MaxDatabaseBytes);
     // Half a copy is no use: a file without the key file it was saved with
     // cannot be opened.
-    if (status == SF_OK && withKeyFile) {
+    if (status == ST_OK && withKeyFile) {
         status = copyFile(keyFilePath(name), copyKeyFilePath(path), MaxKeyFileBytes);
-        if (status != SF_OK)
+        if (status != ST_OK)
             QFile::remove(path);
     }
     switch (status) {
-    case SF_OK:
+    case ST_OK:
         return CopySaved;
     case StatusFileExists:
         return CopyExists;

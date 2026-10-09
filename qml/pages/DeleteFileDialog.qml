@@ -28,7 +28,7 @@ Dialog {
 
             Paragraph {
                 color: Theme.highlightColor
-                text: qsTr("SailFactor deletes its file with every account, its key file and its backups, and locks. Without another copy, each service has to be set up again through its account recovery.")
+                text: qsTr("SailToken deletes its file with every account, its key file and its backups, and locks. Without another copy, each service has to be set up again through its account recovery.")
             }
 
             Paragraph {

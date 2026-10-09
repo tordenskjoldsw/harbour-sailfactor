@@ -72,8 +72,8 @@ bool copyCentralLuma(const QVideoFrame &frame, QByteArray &luma, int &side)
     const int stride = frame.bytesPerLine(0);
     // The core's bound, applied before any arithmetic on the dimensions and
     // before the copy is allocated.
-    if (width <= 0 || height <= 0 || width > int(SF_MAX_FRAME_DIMENSION)
-        || height > int(SF_MAX_FRAME_DIMENSION)
+    if (width <= 0 || height <= 0 || width > int(ST_MAX_FRAME_DIMENSION)
+        || height > int(ST_MAX_FRAME_DIMENSION)
         || stride < (width - 1) * layout.pixelStep + layout.offset + 1)
         return false;
     // The last pixel of the last row must lie inside the mapped buffer, so
@@ -115,8 +115,8 @@ public:
 
     void run() override
     {
-        SfPending *found = nullptr;
-        const int status = sf_pending_from_frame(
+        StPending *found = nullptr;
+        const int status = st_pending_from_frame(
             bytePointer(m_luma), static_cast<size_t>(m_luma.size()), uint32_t(m_width),
             uint32_t(m_height), uint32_t(m_width), 1, &found);
         CorePending pending(found);
@@ -234,11 +234,11 @@ void FrameScanner::rearm()
 
 void FrameScanner::onDecoded(int status, qulonglong pending)
 {
-    CorePending account(reinterpret_cast<SfPending *>(pending));
+    CorePending account(reinterpret_cast<StPending *>(pending));
     m_decoding.store(false);
-    if (m_paused.load() || status == SF_NOT_FOUND || status == SF_CORRUPTED)
+    if (m_paused.load() || status == ST_NOT_FOUND || status == ST_CORRUPTED)
         return;
-    if (status == SF_INVALID_ARGUMENT) {
+    if (status == ST_INVALID_ARGUMENT) {
         // The core refused the frame's dimensions, which says nothing about
         // a code in it.
         onUnsupportedFrame();

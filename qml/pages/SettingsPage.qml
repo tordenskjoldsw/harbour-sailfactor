@@ -222,7 +222,7 @@ Page {
             Repeater {
                 model: [
                     { "text": qsTr("My code is rejected"), "page": "HelpPage.qml" },
-                    { "text": qsTr("About SailFactor"), "page": "AboutPage.qml" }
+                    { "text": qsTr("About SailToken"), "page": "AboutPage.qml" }
                 ]
 
                 BackgroundItem {
@@ -246,7 +246,7 @@ Page {
             Paragraph {
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.highlightColor
-                text: qsTr("SailFactor locks after 2 minutes without use and after 30 seconds in the background. A copied code is removed from the clipboard after %1 seconds, and when the file locks.")
+                text: qsTr("SailToken locks after 2 minutes without use and after 30 seconds in the background. A copied code is removed from the clipboard after %1 seconds, and when the file locks.")
                       .arg(authenticator.clipboardClearSeconds)
             }
 

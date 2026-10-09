@@ -125,7 +125,7 @@ Page {
 
             Paragraph {
                 visible: sync.setupState === Sync.WaitingForBrowser
-                text: qsTr("Log in to Nextcloud in the browser and grant access. Then come back here; SailFactor waits for 20 minutes. If Nextcloud says that the state token does not match, close its older tabs in the browser, cancel here and log in again.")
+                text: qsTr("Log in to Nextcloud in the browser and grant access. Then come back here; SailToken waits for 20 minutes. If Nextcloud says that the state token does not match, close its older tabs in the browser, cancel here and log in again.")
             }
 
             Button {
@@ -194,7 +194,7 @@ Page {
             Paragraph {
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.secondaryHighlightColor
-                text: qsTr("An app password is recommended: create one in Nextcloud under Settings > Security. SailFactor keeps it in an entry of this file, protected by the master password; the account list does not show that entry, KeePassXC on a computer does. Anyone who can open the file can see the app password. You can revoke it in Nextcloud at any time.")
+                text: qsTr("An app password is recommended: create one in Nextcloud under Settings > Security. SailToken keeps it in an entry of this file, protected by the master password; the account list does not show that entry, KeePassXC on a computer does. Anyone who can open the file can see the app password. You can revoke it in Nextcloud at any time.")
             }
         }
     }

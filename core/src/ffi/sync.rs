@@ -4,46 +4,46 @@
 use zeroize::Zeroizing;
 
 use super::{
-    kdbx_status, utf8, write_uuid, SfDatabase, SfString, SF_INVALID_ARGUMENT, SF_NOT_FOUND, SF_OK,
-    SF_SYNC_APP_PASSWORD, SF_SYNC_CERTIFICATE, SF_SYNC_PATH, SF_SYNC_SERVER, SF_SYNC_USER,
+    kdbx_status, utf8, write_uuid, StDatabase, StString, ST_INVALID_ARGUMENT, ST_NOT_FOUND, ST_OK,
+    ST_SYNC_APP_PASSWORD, ST_SYNC_CERTIFICATE, ST_SYNC_PATH, ST_SYNC_SERVER, ST_SYNC_USER,
 };
 use crate::accounts::UUID_LENGTH;
 use crate::kdbx::SyncSettings;
 
-/// One `SF_SYNC_*` setting from the file's sync entry, or `SF_NOT_FOUND`
-/// without one. Release the result with `sf_string_free`.
+/// One `ST_SYNC_*` setting from the file's sync entry, or `ST_NOT_FOUND`
+/// without one. Release the result with `st_string_free`.
 ///
 /// # Safety
 ///
 /// `database` must be a live handle; `out` valid for one write.
 #[no_mangle]
-pub unsafe extern "C" fn sf_database_sync_setting(
-    database: *const SfDatabase,
+pub unsafe extern "C" fn st_database_sync_setting(
+    database: *const StDatabase,
     setting: u32,
-    out: *mut SfString,
+    out: *mut StString,
 ) -> i32 {
     // SAFETY: the caller guarantees the pointers as documented.
     let Some(out) = (unsafe { out.as_mut() }) else {
-        return SF_INVALID_ARGUMENT;
+        return ST_INVALID_ARGUMENT;
     };
-    *out = SfString::EMPTY;
+    *out = StString::EMPTY;
     // SAFETY: as above.
     let Some(database) = (unsafe { database.as_ref() }) else {
-        return SF_INVALID_ARGUMENT;
+        return ST_INVALID_ARGUMENT;
     };
     let Some(settings) = database.database.sync_settings() else {
-        return SF_NOT_FOUND;
+        return ST_NOT_FOUND;
     };
     let value = match setting {
-        SF_SYNC_SERVER => &settings.server,
-        SF_SYNC_USER => &settings.user,
-        SF_SYNC_APP_PASSWORD => &settings.app_password,
-        SF_SYNC_PATH => &settings.path,
-        SF_SYNC_CERTIFICATE => &settings.certificate,
-        _ => return SF_INVALID_ARGUMENT,
+        ST_SYNC_SERVER => &settings.server,
+        ST_SYNC_USER => &settings.user,
+        ST_SYNC_APP_PASSWORD => &settings.app_password,
+        ST_SYNC_PATH => &settings.path,
+        ST_SYNC_CERTIFICATE => &settings.certificate,
+        _ => return ST_INVALID_ARGUMENT,
     };
-    *out = SfString::new(value);
-    SF_OK
+    *out = StString::new(value);
+    ST_OK
 }
 
 /// Stores the sync settings, UTF-8 each, in the file's sync entry, created
@@ -57,8 +57,8 @@ pub unsafe extern "C" fn sf_database_sync_setting(
 /// writes of 16 bytes.
 #[no_mangle]
 #[allow(clippy::too_many_arguments)]
-pub unsafe extern "C" fn sf_database_set_sync_settings(
-    database: *mut SfDatabase,
+pub unsafe extern "C" fn st_database_set_sync_settings(
+    database: *mut StDatabase,
     server: *const u8,
     server_length: usize,
     user: *const u8,
@@ -73,7 +73,7 @@ pub unsafe extern "C" fn sf_database_set_sync_settings(
     uuid_out: *mut u8,
 ) -> i32 {
     if uuid_out.is_null() {
-        return SF_INVALID_ARGUMENT;
+        return ST_INVALID_ARGUMENT;
     }
     // SAFETY: uuid_out is valid for 16 bytes, as the caller guarantees.
     unsafe { write_uuid(uuid_out, &[0; UUID_LENGTH]) };
@@ -97,7 +97,7 @@ pub unsafe extern "C" fn sf_database_set_sync_settings(
         text(certificate, certificate_length),
     )
     else {
-        return SF_INVALID_ARGUMENT;
+        return ST_INVALID_ARGUMENT;
     };
     let settings = SyncSettings {
         server,
@@ -110,7 +110,7 @@ pub unsafe extern "C" fn sf_database_set_sync_settings(
         Ok(uuid) => {
             // SAFETY: as above.
             unsafe { write_uuid(uuid_out, &uuid) };
-            SF_OK
+            ST_OK
         }
         Err(error) => kdbx_status(error),
     }

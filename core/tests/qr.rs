@@ -3,9 +3,9 @@
 
 use std::path::PathBuf;
 
-use sailfactor_core::ffi::pending::{sf_pending_free, sf_pending_from_frame, sf_pending_text};
-use sailfactor_core::ffi::{sf_string_free, SfPending, SfString, SF_OK, SF_TEXT_NAME};
-use sailfactor_core::qr::{self, LumaFrame, QrError, MAX_PAYLOAD_LENGTH};
+use sailtoken_core::ffi::pending::{st_pending_free, st_pending_from_frame, st_pending_text};
+use sailtoken_core::ffi::{st_string_free, StPending, StString, ST_OK, ST_TEXT_NAME};
+use sailtoken_core::qr::{self, LumaFrame, QrError, MAX_PAYLOAD_LENGTH};
 
 const TOTP_URI: &str =
     "otpauth://totp/Example:alice@example.org?secret=JBSWY3DPEHPK3PXP&issuer=Example";
@@ -190,10 +190,10 @@ fn rejects_invalid_frame_layouts() {
 fn c_api_turns_a_frame_into_a_pending_account() {
     let frame = render(&modules("totp.txt"), &PLAIN);
     let side = frame.width as u32;
-    let mut pending: *mut SfPending = std::ptr::null_mut();
+    let mut pending: *mut StPending = std::ptr::null_mut();
     // SAFETY: the frame buffer holds side * side bytes; pending is a local.
     let status = unsafe {
-        sf_pending_from_frame(
+        st_pending_from_frame(
             frame.pixels.as_ptr(),
             frame.pixels.len(),
             side,
@@ -203,19 +203,19 @@ fn c_api_turns_a_frame_into_a_pending_account() {
             &mut pending,
         )
     };
-    assert_eq!(status, SF_OK);
-    let mut name = SfString::EMPTY;
+    assert_eq!(status, ST_OK);
+    let mut name = StString::EMPTY;
     // SAFETY: pending is live and name a local.
     assert_eq!(
-        unsafe { sf_pending_text(pending, SF_TEXT_NAME, &mut name) },
-        SF_OK
+        unsafe { st_pending_text(pending, ST_TEXT_NAME, &mut name) },
+        ST_OK
     );
     // SAFETY: on success name holds length bytes owned by the core.
     let text = unsafe { std::slice::from_raw_parts(name.data, name.length) };
     assert_eq!(text, b"alice@example.org");
     // SAFETY: both came from the core and are not used afterwards.
     unsafe {
-        sf_string_free(name);
-        sf_pending_free(pending);
+        st_string_free(name);
+        st_pending_free(pending);
     }
 }

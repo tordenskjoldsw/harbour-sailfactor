@@ -10,9 +10,9 @@
 namespace {
 
 int openWith(const QByteArray &data, const QByteArray &keyFile, const QByteArray &password,
-             bool hasPassword, SfDatabase **database)
+             bool hasPassword, StDatabase **database)
 {
-    return sf_database_open(bytePointer(data), static_cast<size_t>(data.size()),
+    return st_database_open(bytePointer(data), static_cast<size_t>(data.size()),
                             bytePointer(password), static_cast<size_t>(password.size()),
                             hasPassword, bytePointer(keyFile), static_cast<size_t>(keyFile.size()),
                             database);
@@ -21,19 +21,19 @@ int openWith(const QByteArray &data, const QByteArray &keyFile, const QByteArray
 // Reads the file and the key file, if there is one, and runs the KDF. The
 // caller wipes keyFile.
 int readAndOpen(const QString &databasePath, const QString &keyFilePath,
-                const QByteArray &password, SfDatabase **database, QByteArray &data,
+                const QByteArray &password, StDatabase **database, QByteArray &data,
                 QByteArray &keyFile)
 {
     int status = readBoundedFile(databasePath, MaxDatabaseBytes, data);
-    if (status == SF_OK && !keyFilePath.isEmpty())
+    if (status == ST_OK && !keyFilePath.isEmpty())
         status = readBoundedFile(keyFilePath, MaxKeyFileBytes, keyFile);
-    if (status != SF_OK)
+    if (status != ST_OK)
         return status;
     // KDBX distinguishes "no password" from an empty one. Like KeePassXC,
     // an empty field means no password, and a failed attempt is retried
     // with an empty password.
     status = openWith(data, keyFile, password, !password.isEmpty(), database);
-    if (status == SF_INVALID_CREDENTIALS && password.isEmpty())
+    if (status == ST_INVALID_CREDENTIALS && password.isEmpty())
         status = openWith(data, keyFile, password, true, database);
     return status;
 }
@@ -44,13 +44,13 @@ int readAndOpen(const QString &databasePath, const QString &keyFilePath,
 void deliver(Authenticator *authenticator, const std::atomic_bool &cancelled, int attempt,
              int status, CoreDatabase database, const QByteArray &digest)
 {
-    if (status != SF_OK)
+    if (status != ST_OK)
         database.reset();
     const bool delivered = !cancelled
         && QMetaObject::invokeMethod(authenticator, "onUnlockFinished", Qt::QueuedConnection,
                                      Q_ARG(int, attempt), Q_ARG(int, status),
                                      Q_ARG(qulonglong, reinterpret_cast<qulonglong>(database.get())),
-                                     Q_ARG(QByteArray, status == SF_OK ? digest : QByteArray()));
+                                     Q_ARG(QByteArray, status == ST_OK ? digest : QByteArray()));
     if (delivered)
         database.release();
 }
@@ -78,7 +78,7 @@ void UnlockTask::run()
 {
     QByteArray data;
     QByteArray keyFile;
-    SfDatabase *opened = nullptr;
+    StDatabase *opened = nullptr;
     // Tightens the directories of an installation that made them before
     // they were private; the file itself has been owner-only from the start.
     Databases::makeStoragePrivate();
@@ -112,31 +112,31 @@ AddTask::~AddTask()
 
 void AddTask::run()
 {
-    SfDatabase *opened = nullptr;
+    StDatabase *opened = nullptr;
     QByteArray data;
     QByteArray keyFile;
     int status = readAndOpen(m_databasePath, m_keyFilePath, m_password, &opened, data, keyFile);
     CoreDatabase database(opened);
     secureWipe(m_password);
     bool fromKdbx3 = false;
-    if (status == SF_OK)
-        status = sf_database_from_kdbx3(database.get(), &fromKdbx3);
+    if (status == ST_OK)
+        status = st_database_from_kdbx3(database.get(), &fromKdbx3);
     CoreBytes converted;
-    if (status == SF_OK && fromKdbx3) {
-        status = sf_database_set_kdf_level(database.get(), m_kdfLevel);
-        if (status == SF_OK)
-            status = sf_database_save(database.get(), converted.out());
+    if (status == ST_OK && fromKdbx3) {
+        status = st_database_set_kdf_level(database.get(), m_kdfLevel);
+        if (status == ST_OK)
+            status = st_database_save(database.get(), converted.out());
     }
     const QByteArray file = fromKdbx3 ? converted.view() : data;
     // Only a file the credentials open is stored, together with the key
     // file that opened it. The key file goes first: a file without it could
     // not be opened, while a leftover key file is removed by the next claim.
-    if (status == SF_OK)
+    if (status == ST_OK)
         status = Databases::claim(m_name);
-    if (status == SF_OK && !keyFile.isEmpty())
+    if (status == ST_OK && !keyFile.isEmpty())
         status = createNewFile(Databases::keyFilePath(m_name), keyFile);
     secureWipe(keyFile);
-    if (status == SF_OK)
+    if (status == ST_OK)
         status = createNewFile(Databases::databasePath(m_name), file);
     deliver(m_authenticator, *m_cancelled, m_attempt, status, std::move(database),
             fileDigest(file));
@@ -160,23 +160,23 @@ CreateTask::~CreateTask()
 
 void CreateTask::run()
 {
-    SfDatabase *created = nullptr;
+    StDatabase *created = nullptr;
     CoreBytes file;
     const QByteArray name = m_name.toUtf8();
-    int status = sf_database_create(bytePointer(m_password), static_cast<size_t>(m_password.size()),
+    int status = st_database_create(bytePointer(m_password), static_cast<size_t>(m_password.size()),
                                     bytePointer(name), static_cast<size_t>(name.size()),
                                     m_kdfLevel, unixSeconds(), &created, file.out());
     CoreDatabase database(created);
     secureWipe(m_password);
-    if (status == SF_OK)
+    if (status == ST_OK)
         status = Databases::claim(m_name);
-    if (status == SF_OK)
+    if (status == ST_OK)
         status = createNewFile(Databases::databasePath(m_name), file.view());
     deliver(m_authenticator, *m_cancelled, m_attempt, status, std::move(database),
             fileDigest(file.view()));
 }
 
-SaveTask::SaveTask(Authenticator *authenticator, int attempt, const SfDatabase *database,
+SaveTask::SaveTask(Authenticator *authenticator, int attempt, const StDatabase *database,
                    const QString &databasePath, const QByteArray &expectedDigest)
     : m_authenticator(authenticator)
     , m_attempt(attempt)
@@ -189,10 +189,10 @@ SaveTask::SaveTask(Authenticator *authenticator, int attempt, const SfDatabase *
 void SaveTask::run()
 {
     CoreBytes file;
-    int status = sf_database_save(m_database, file.out());
+    int status = st_database_save(m_database, file.out());
     QByteArray digest;
     bool replacedChangedFile = false;
-    if (status == SF_OK) {
+    if (status == ST_OK) {
         status = writeDatabaseFile(m_databasePath, file.view(), Databases::backupDirectory(),
                                    m_expectedDigest, replacedChangedFile);
         digest = fileDigest(file.view());
@@ -202,7 +202,7 @@ void SaveTask::run()
                               Q_ARG(QByteArray, digest), Q_ARG(bool, replacedChangedFile));
 }
 
-MergeTask::MergeTask(Authenticator *authenticator, int attempt, const SfDatabase *database,
+MergeTask::MergeTask(Authenticator *authenticator, int attempt, const StDatabase *database,
                      const QString &path)
     : m_authenticator(authenticator)
     , m_attempt(attempt)
@@ -211,7 +211,7 @@ MergeTask::MergeTask(Authenticator *authenticator, int attempt, const SfDatabase
 {
 }
 
-MergeTask::MergeTask(Authenticator *authenticator, int attempt, const SfDatabase *database,
+MergeTask::MergeTask(Authenticator *authenticator, int attempt, const StDatabase *database,
                      QByteArray data)
     : m_authenticator(authenticator)
     , m_attempt(attempt)
@@ -238,14 +238,14 @@ MergeTask::~MergeTask()
 
 void MergeTask::run()
 {
-    SfDatabase *opened = nullptr;
+    StDatabase *opened = nullptr;
     QByteArray data;
     int status;
     if (m_database) {
         data = m_data;
-        status = m_path.isEmpty() ? SF_OK : readBoundedFile(m_path, MaxDatabaseBytes, data);
-        if (status == SF_OK)
-            status = sf_database_open_like(m_database, bytePointer(data),
+        status = m_path.isEmpty() ? ST_OK : readBoundedFile(m_path, MaxDatabaseBytes, data);
+        if (status == ST_OK)
+            status = st_database_open_like(m_database, bytePointer(data),
                                            static_cast<size_t>(data.size()), &opened);
     } else {
         QByteArray keyFile;

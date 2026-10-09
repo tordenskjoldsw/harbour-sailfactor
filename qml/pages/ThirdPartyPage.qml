@@ -59,7 +59,7 @@ Page {
             Paragraph {
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.highlightColor
-                text: qsTr("SailFactor includes these libraries. Where a library offers a choice of licenses, SailFactor uses the MIT license.")
+                text: qsTr("SailToken includes these libraries. Where a library offers a choice of licenses, SailToken uses the MIT license.")
             }
 
             Item {

@@ -28,7 +28,7 @@ Dialog {
             Paragraph {
                 text: sync.certificateReplaced
                       ? qsTr("The server presents another certificate than the one you trusted before. That happens when the certificate was renewed, but also when someone intercepts the connection and could read your Nextcloud app password. Only trust it if this fingerprint matches the one your server shows.")
-                      : qsTr("This phone does not trust the certificate of the server, as with a self-signed certificate. Only trust it if this fingerprint matches the one your server shows. SailFactor then accepts exactly this certificate and no other.")
+                      : qsTr("This phone does not trust the certificate of the server, as with a self-signed certificate. Only trust it if this fingerprint matches the one your server shows. SailToken then accepts exactly this certificate and no other.")
             }
 
             Paragraph {

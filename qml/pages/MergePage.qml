@@ -47,7 +47,7 @@ Page {
     // bin are not accounts.
     function summary(newAccounts, removedAccounts, changed) {
         if (!changed)
-            return qsTr("SailFactor already has every change from this file.")
+            return qsTr("SailToken already has every change from this file.")
         if (newAccounts === 0 && removedAccounts === 0)
             return qsTr("Changes merged. No account was added or removed.")
         // No translations exist yet, so counts go after a label instead of
@@ -146,7 +146,7 @@ Page {
 
             Paragraph {
                 visible: page.needsPassword
-                text: qsTr("This file does not open with the master password of SailFactor's file. Enter the master password of this file and choose its key file if it uses one.")
+                text: qsTr("This file does not open with the master password of SailToken's file. Enter the master password of this file and choose its key file if it uses one.")
             }
 
             PasswordInput {
@@ -179,7 +179,7 @@ Page {
             Paragraph {
                 visible: page.confirming
                 color: Theme.errorColor
-                text: qsTr("Passwords without a one-time code in this file: %1. SailFactor is for the second factor; passwords belong in your password manager. Merging copies them into SailFactor's file, and a sync takes them to Nextcloud.").arg(page.passwordsWithoutCode)
+                text: qsTr("Passwords without a one-time code in this file: %1. SailToken is for the second factor; passwords belong in your password manager. Merging copies them into SailToken's file, and a sync takes them to Nextcloud.").arg(page.passwordsWithoutCode)
             }
 
             Paragraph {

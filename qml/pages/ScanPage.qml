@@ -15,7 +15,7 @@ Page {
 
     function rejectionText(rejection) {
         switch (rejection) {
-        case Authenticator.Hotp: return qsTr("This is a counter-based code, which SailFactor does not support")
+        case Authenticator.Hotp: return qsTr("This is a counter-based code, which SailToken does not support")
         case Authenticator.UnsupportedType: return qsTr("This code type is not supported")
         case Authenticator.InvalidSecret: return qsTr("This code has an unreadable secret")
         case Authenticator.InvalidSettings: return qsTr("This code has settings out of range")
@@ -121,7 +121,7 @@ Page {
             horizontalAlignment: Text.AlignHCenter
             color: scanner.rejection !== Authenticator.PendingReady || scanner.unsupportedFrames
                    ? Theme.errorColor : Theme.highlightColor
-            text: scanner.unsupportedFrames ? qsTr("The camera delivers frames SailFactor cannot read")
+            text: scanner.unsupportedFrames ? qsTr("The camera delivers frames SailToken cannot read")
                 : scanner.rejection !== Authenticator.PendingReady ? page.rejectionText(scanner.rejection)
                 : qsTr("Hold the QR code inside the frame. Tap to focus.")
         }

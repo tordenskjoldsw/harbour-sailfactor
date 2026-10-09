@@ -7,21 +7,21 @@
 
 namespace {
 
-QString listText(const SfAccountList *list, size_t index, uint32_t column)
+QString listText(const StAccountList *list, size_t index, uint32_t column)
 {
-    SfString text = emptyCoreString();
-    return sf_account_list_text(list, index, column, &text) == SF_OK ? takeCoreString(text)
+    StString text = emptyCoreString();
+    return st_account_list_text(list, index, column, &text) == ST_OK ? takeCoreString(text)
                                                                      : QString();
 }
 
 AccountListModel::Kind kindFor(uint32_t kind)
 {
     switch (kind) {
-    case SF_KIND_TOTP:
+    case ST_KIND_TOTP:
         return AccountListModel::Totp;
-    case SF_KIND_HOTP:
+    case ST_KIND_HOTP:
         return AccountListModel::Hotp;
-    case SF_KIND_UNREADABLE:
+    case ST_KIND_UNREADABLE:
         return AccountListModel::Unreadable;
     default:
         return AccountListModel::NoCode;
@@ -150,33 +150,33 @@ void AccountListModel::reload()
     // Asking for the handle checks the lock deadlines, and a lock reloads
     // the list again: ask before the reset, so that reload runs on its own
     // instead of inside this one.
-    const SfDatabase *database = m_authenticator ? m_authenticator->database() : nullptr;
+    const StDatabase *database = m_authenticator ? m_authenticator->database() : nullptr;
     beginResetModel();
     m_items.clear();
-    SfAccountList *found = nullptr;
-    if (database && sf_account_list(database, &found) == SF_OK) {
+    StAccountList *found = nullptr;
+    if (database && st_account_list(database, &found) == ST_OK) {
         const CoreAccountList list(found);
         const QString query = m_query.trimmed();
-        for (size_t index = 0; index < sf_account_list_length(list.get()); ++index) {
+        for (size_t index = 0; index < st_account_list_length(list.get()); ++index) {
             Item item;
-            item.uuid = QByteArray(SF_UUID_LENGTH, Qt::Uninitialized);
+            item.uuid = QByteArray(ST_UUID_LENGTH, Qt::Uninitialized);
             uint32_t kind = 0, digits = 0, period = 0, encoder = 0;
-            if (sf_account_list_uuid(list.get(), index, reinterpret_cast<uint8_t *>(item.uuid.data()))
-                    != SF_OK
-                || sf_account_list_kind(list.get(), index, &kind, &digits, &period, &encoder)
-                    != SF_OK)
+            if (st_account_list_uuid(list.get(), index, reinterpret_cast<uint8_t *>(item.uuid.data()))
+                    != ST_OK
+                || st_account_list_kind(list.get(), index, &kind, &digits, &period, &encoder)
+                    != ST_OK)
                 continue;
-            item.issuer = listText(list.get(), index, SF_TEXT_ISSUER);
-            item.name = listText(list.get(), index, SF_TEXT_NAME);
+            item.issuer = listText(list.get(), index, ST_TEXT_ISSUER);
+            item.name = listText(list.get(), index, ST_TEXT_NAME);
             if (!query.isEmpty() && !item.issuer.contains(query, Qt::CaseInsensitive)
                 && !item.name.contains(query, Qt::CaseInsensitive))
                 continue;
             item.kind = kindFor(kind);
             item.digits = static_cast<int>(digits);
             item.period = static_cast<int>(period);
-            item.steam = encoder == SF_ENCODER_STEAM;
+            item.steam = encoder == ST_ENCODER_STEAM;
             bool hasPassword = false;
-            item.hasPassword = sf_account_list_has_password(list.get(), index, &hasPassword) == SF_OK
+            item.hasPassword = st_account_list_has_password(list.get(), index, &hasPassword) == ST_OK
                 && hasPassword;
             item.remaining = 0;
             m_items.append(item);

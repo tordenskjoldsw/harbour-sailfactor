@@ -39,7 +39,7 @@ Page {
                     textFormat: Text.PlainText
                     font.pixelSize: Theme.fontSizeLarge
                     color: Theme.highlightColor
-                    text: "SailFactor"
+                    text: "SailToken"
                 }
 
                 Label {
@@ -62,9 +62,9 @@ Page {
 
             Repeater {
                 model: [
-                    qsTr("I built SailFactor to keep the second factor of my logins apart from my passwords: TOTP codes on my Sailfish phone, in an encrypted file of their own with its own master password."),
+                    qsTr("I built SailToken to keep the second factor of my logins apart from my passwords: TOTP codes on my Sailfish phone, in an encrypted file of their own with its own master password."),
                     qsTr("The file is a standard KeePass-compatible file, so KeePassXC on a computer can open it and show the same codes. No account, no server, no lock-in."),
-                    qsTr("SailFactor is free software under the MIT license. Read the code, check what I claim here and tell me what you find.")
+                    qsTr("SailToken is free software under the MIT license. Read the code, check what I claim here and tell me what you find.")
                 ]
 
                 Paragraph {
@@ -79,7 +79,7 @@ Page {
                 Repeater {
                     model: [
                         { "text": qsTr("Source code"), "url": page.repository },
-                        { "text": qsTr("How SailFactor protects your accounts"),
+                        { "text": qsTr("How SailToken protects your accounts"),
                           "url": page.repository + "/blob/main/docs/threat-model.md" },
                         { "text": qsTr("Report a problem"), "url": page.repository + "/issues" },
                         { "text": qsTr("Report a security issue privately"),
@@ -114,7 +114,7 @@ Page {
             Paragraph {
                 font.pixelSize: Theme.fontSizeExtraSmall
                 color: Theme.secondaryColor
-                text: qsTr("Copyright 2026 Tobias Kaminski. SailFactor is an independent project and not affiliated with KeePass, KeePassXC or Jolla.")
+                text: qsTr("Copyright 2026 Tobias Kaminski. SailToken is an independent project and not affiliated with KeePass, KeePassXC or Jolla.")
             }
         }
 

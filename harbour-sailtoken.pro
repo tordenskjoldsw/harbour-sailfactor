@@ -51,7 +51,7 @@ else:equals(QT_ARCH, i386): RUST_TRIPLE = i686-unknown-linux-gnu
 else: error("Unsupported QT_ARCH for the Rust core: $$QT_ARCH")
 
 RUST_TARGET_DIR = $$OUT_PWD/rust-target
-RUST_STATICLIB = $$RUST_TARGET_DIR/$$RUST_TRIPLE/release/libsailfactor_core.a
+RUST_STATICLIB = $$RUST_TARGET_DIR/$$RUST_TRIPLE/release/libsailtoken_core.a
 
 rust_core.target = $$RUST_STATICLIB
 rust_core.commands = cd $$PWD && CARGO_HOME=$$OUT_PWD/cargo-home cargo build --release --offline --locked \

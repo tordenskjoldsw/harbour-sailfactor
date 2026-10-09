@@ -14,7 +14,7 @@ class QNetworkConfigurationManager;
 class QTimer;
 class Authenticator;
 
-// Copied from SailVault (src/sync.*), adapted to the one file SailFactor
+// Copied from SailVault (src/sync.*), adapted to the one file SailToken
 // keeps.
 //
 // Syncs the open file with its copy on Nextcloud while the app runs:

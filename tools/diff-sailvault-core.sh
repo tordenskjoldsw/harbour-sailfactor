@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Checks the code copied from SailVault (PLAN.md section 5). Fails when a
 # copied file differs from SailVault at the commit it was copied from, with
-# SailFactor's deliberate deviations in tools/sailvault-core.patch applied,
+# SailToken's deliberate deviations in tools/sailvault-core.patch applied,
 # or when SailVault changed one of these files after that commit. After
 # porting such a change, set copied_from to the SailVault commit it came
 # from.

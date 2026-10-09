@@ -5,8 +5,8 @@
 //! nothing in a file shared with KeePassXC is hidden, except the entry that
 //! holds the Nextcloud sync settings, which the settings page shows.
 //!
-//! The order of the list is SailFactor's own: a list of entry UUIDs in the
-//! database CustomData item `SailFactor/Order`. Moving an account rewrites
+//! The order of the list is SailToken's own: a list of entry UUIDs in the
+//! database CustomData item `SailToken/Order`. Moving an account rewrites
 //! that item and leaves the entries where they are, so the order survives a
 //! merge in which KeePassXC's rules move a changed entry to the end of its
 //! group. Accounts the list does not name follow in document order.
@@ -27,7 +27,7 @@ pub const UUID_LENGTH: usize = 16;
 const TITLE: &str = "Title";
 const USER_NAME: &str = "UserName";
 const PASSWORD: &str = "Password";
-const ORDER_KEY: &str = "SailFactor/Order";
+const ORDER_KEY: &str = "SailToken/Order";
 // A crafted file cannot make listing expensive: UUIDs beyond this are
 // ignored, far more accounts than anyone keeps.
 const MAX_ORDERED: usize = 10_000;
@@ -61,7 +61,7 @@ pub struct Account {
     pub issuer: Zeroizing<String>,
     pub name: Zeroizing<String>,
     pub kind: AccountKind,
-    /// The entry stores a password, such as one from KeePassXC. SailFactor
+    /// The entry stores a password, such as one from KeePassXC. SailToken
     /// never writes or shows one; the pages warn about it.
     pub has_password: bool,
 }

@@ -1,8 +1,8 @@
 //! The account model on the TOTP fixture (`tools/gen-totp-fixture.py`).
 
-use sailfactor_core::accounts::{self, AccountError, AccountKind, UUID_LENGTH};
-use sailfactor_core::kdbx::{CompositeKey, Database, KdbxError, NewField};
-use sailfactor_core::otp::{code_at, Algorithm, Encoder, TotpSettings};
+use sailtoken_core::accounts::{self, AccountError, AccountKind, UUID_LENGTH};
+use sailtoken_core::kdbx::{CompositeKey, Database, KdbxError, NewField};
+use sailtoken_core::otp::{code_at, Algorithm, Encoder, TotpSettings};
 
 const FIXTURE: &[u8] = include_bytes!("fixtures/totp-entries.kdbx");
 const NOW: i64 = 1_790_000_000;

@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use sailfactor_core::otp::{
+use sailtoken_core::otp::{
     code_at, parse_uri, seconds_remaining, settings_from_attributes, write_uri, Algorithm, Encoder,
     OtpError, TotpSettings, MAX_URI_LENGTH,
 };
@@ -379,7 +379,7 @@ fn writes_uris_in_keepassxcs_layout() {
     let padded = settings("NBSWY3DPEE", Algorithm::Sha256, 6, 30);
     assert_eq!(
         write_uri("", "bob", &padded).as_str(),
-        "otpauth://totp/SailFactor:bob?secret=NBSWY3DPEE%3D%3D%3D%3D%3D%3D&period=30&digits=6&issuer=SailFactor&algorithm=SHA256"
+        "otpauth://totp/SailToken:bob?secret=NBSWY3DPEE%3D%3D%3D%3D%3D%3D&period=30&digits=6&issuer=SailToken&algorithm=SHA256"
     );
 }
 

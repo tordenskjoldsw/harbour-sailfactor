@@ -1,6 +1,6 @@
 //! Codes for the entries of `fixtures/totp-entries.kdbx`
 //! (`tools/gen-totp-fixture.py`) against `keepassxc-cli show -t`, and
-//! accounts written by SailFactor read back by KeePassXC.
+//! accounts written by SailToken read back by KeePassXC.
 
 use std::collections::HashMap;
 use std::io::Write as _;
@@ -8,9 +8,9 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use sailfactor_core::accounts;
-use sailfactor_core::kdbx::{CompositeKey, Database, Entry};
-use sailfactor_core::otp::{
+use sailtoken_core::accounts;
+use sailtoken_core::kdbx::{CompositeKey, Database, Entry};
+use sailtoken_core::otp::{
     code_at, settings_from_attributes, write_uri, Algorithm, Encoder, OtpError, TotpSettings,
 };
 
@@ -49,7 +49,7 @@ struct TempFile(PathBuf);
 impl TempFile {
     fn write(name: &str, data: &[u8]) -> Self {
         let path =
-            std::env::temp_dir().join(format!("sailfactor-{}-{name}.kdbx", std::process::id()));
+            std::env::temp_dir().join(format!("sailtoken-{}-{name}.kdbx", std::process::id()));
         std::fs::write(&path, data).unwrap();
         Self(path)
     }
@@ -90,7 +90,7 @@ fn assert_same_code(file: &TempFile, title: &str, settings: &TotpSettings) {
     let ours = [code_at(settings, before), code_at(settings, after)];
     assert!(
         ours.iter().any(|code| code.as_str() == shown),
-        "{title}: keepassxc-cli shows {shown}, SailFactor {:?}",
+        "{title}: keepassxc-cli shows {shown}, SailToken {:?}",
         ours.iter().map(|code| code.as_str()).collect::<Vec<_>>()
     );
 }
@@ -161,7 +161,7 @@ fn the_fixture_entries_have_the_expected_settings() {
 }
 
 #[test]
-fn accounts_written_by_sailfactor_show_the_same_code_in_keepassxc() {
+fn accounts_written_by_sailtoken_show_the_same_code_in_keepassxc() {
     let mut database = Database::open(FIXTURE, key()).unwrap();
     let root = database.root_group().unwrap().uuid().unwrap();
     let accounts = [
@@ -262,8 +262,5 @@ fn keepassxc_keeps_the_account_order_when_it_saves() {
         .iter()
         .map(|account| account.uuid)
         .collect();
-    assert_eq!(
-        after, order,
-        "KeePassXC dropped or changed SailFactor/Order"
-    );
+    assert_eq!(after, order, "KeePassXC dropped or changed SailToken/Order");
 }

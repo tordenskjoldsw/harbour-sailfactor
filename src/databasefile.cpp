@@ -15,7 +15,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "sailfactor_core.h"
+#include "sailtoken_core.h"
 #include "corebridge.h"
 
 namespace {
@@ -168,7 +168,7 @@ int readBoundedFile(const QString &path, qint64 maxBytes, QByteArray &out)
     const int fd = openRegularFile(path, info);
     if (fd < 0)
         return StatusFileUnreadable;
-    int status = SF_OK;
+    int status = ST_OK;
     if (info.st_size > maxBytes) {
         status = StatusTooLarge;
     } else {
@@ -195,7 +195,7 @@ int readFileStart(const QString &path, int length, QByteArray &out)
         out.clear();
         return StatusFileUnreadable;
     }
-    return SF_OK;
+    return ST_OK;
 }
 
 QByteArray fileDigest(const QByteArray &data)
@@ -208,7 +208,7 @@ int writeDatabaseFile(const QString &path, const QByteArray &data, const QString
 {
     QByteArray current;
     const int status = readBoundedFile(path, MaxDatabaseBytes, current);
-    if (status != SF_OK)
+    if (status != ST_OK)
         return status;
     replacedChangedFile = fileDigest(current) != expectedDigest;
     if (!backUp(path, current, backupDir, replacedChangedFile))
@@ -218,7 +218,7 @@ int writeDatabaseFile(const QString &path, const QByteArray &data, const QString
     struct stat info;
     if (::stat(QFile::encodeName(path).constData(), &info) != 0)
         return StatusFileUnwritable;
-    const QString tempPath = path + QStringLiteral(".sailfactor-tmp");
+    const QString tempPath = path + QStringLiteral(".sailtoken-tmp");
     if (!writeExclusively(tempPath, info.st_mode & 0777, data)
         || ::rename(QFile::encodeName(tempPath).constData(),
                     QFile::encodeName(path).constData()) != 0) {
@@ -229,7 +229,7 @@ int writeDatabaseFile(const QString &path, const QByteArray &data, const QString
     // only leaves the rename less durable; reporting a failure would keep
     // the old digest and flag the next save as a change by another program.
     syncDirectory(QFileInfo(path).absolutePath());
-    return SF_OK;
+    return ST_OK;
 }
 
 int createNewFile(const QString &path, const QByteArray &data)
@@ -237,7 +237,7 @@ int createNewFile(const QString &path, const QByteArray &data)
     const QByteArray name = QFile::encodeName(path);
     if (::access(name.constData(), F_OK) == 0)
         return StatusFileExists;
-    const QString tempPath = path + QStringLiteral(".sailfactor-tmp");
+    const QString tempPath = path + QStringLiteral(".sailtoken-tmp");
     const QByteArray tempName = QFile::encodeName(tempPath);
     if (!writeExclusively(tempPath, S_IRUSR | S_IWUSR, data)) {
         ::unlink(tempName.constData());
@@ -250,7 +250,7 @@ int createNewFile(const QString &path, const QByteArray &data)
         return linkError == EEXIST ? StatusFileExists : StatusFileUnwritable;
     // As after a rename: the file exists now, and a retry would only find it.
     syncDirectory(QFileInfo(path).absolutePath());
-    return SF_OK;
+    return ST_OK;
 }
 
 bool removeBackups(const QString &databasePath, const QString &backupDir)

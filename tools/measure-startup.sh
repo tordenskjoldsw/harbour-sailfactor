@@ -21,16 +21,16 @@ fi
     i=1
     while [ \$i -le $runs ]; do
         read up rest < /proc/uptime
-        /usr/bin/harbour-sailtoken --startup-trace >/tmp/sailfactor-trace.txt 2>&1 &
+        /usr/bin/harbour-sailtoken --startup-trace >/tmp/sailtoken-trace.txt 2>&1 &
         pid=\$!
         sleep 4
-        frame=\$(grep -a -o 'first-frame-boottime-ms=[0-9]*' /tmp/sailfactor-trace.txt | cut -d= -f2)
+        frame=\$(grep -a -o 'first-frame-boottime-ms=[0-9]*' /tmp/sailtoken-trace.txt | cut -d= -f2)
         echo \"\$up \$frame\"
         kill \$pid 2>/dev/null
         sleep 3
         i=\$((i + 1))
     done
-    rm -f /tmp/sailfactor-trace.txt
+    rm -f /tmp/sailtoken-trace.txt
 " | gawk '
     NF == 2 {
         ms = $2 - int($1 * 1000 + 0.5)

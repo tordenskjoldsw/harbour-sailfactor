@@ -44,7 +44,7 @@ Page {
         case Authenticator.TooLarge: return qsTr("The file or its settings exceed the supported limits")
         case Authenticator.FileUnreadable: return qsTr("The file cannot be read")
         case Authenticator.FileUnwritable: return qsTr("The file cannot be written")
-        case Authenticator.FileExists: return qsTr("SailFactor already has a file")
+        case Authenticator.FileExists: return qsTr("SailToken already has a file")
         case Authenticator.ChangesDiscarded: return qsTr("Changes that could not be saved were discarded when the file locked")
         default: return ""
         }
@@ -141,7 +141,7 @@ Page {
             enabled: !page.unlocking
 
             PageHeader {
-                title: "SailFactor"
+                title: "SailToken"
                 description: window.lockedAutomatically ? qsTr("Locked automatically") : ""
             }
 
@@ -162,7 +162,7 @@ Page {
                 visible: page.adding
                 label: qsTr("File")
                 value: page.fileName(authenticator.sourcePath)
-                description: qsTr("SailFactor keeps its own copy, which other apps cannot read")
+                description: qsTr("SailToken keeps its own copy, which other apps cannot read")
                 onClicked: pageStack.push(sourcePicker)
             }
 
@@ -170,7 +170,7 @@ Page {
                 visible: page.adding && authenticator.sourceFromKdbx3
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.secondaryHighlightColor
-                text: qsTr("This file uses the older KDBX 3.1 format. SailFactor stores it as KDBX 4 with the stronger Argon2id key derivation; KeePassXC opens it as before. The original file stays unchanged.")
+                text: qsTr("This file uses the older KDBX 3.1 format. SailToken stores it as KDBX 4 with the stronger Argon2id key derivation; KeePassXC opens it as before. The original file stays unchanged.")
             }
 
             ProtectionComboBox {
@@ -215,13 +215,13 @@ Page {
                 visible: page.adding
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.secondaryHighlightColor
-                text: qsTr("Add the file with your two-factor accounts, not your password database: the separation only helps when the second factor lives in a file of its own, with a different master password. SailFactor adds only files that need a password, because a key file is kept next to the file.")
+                text: qsTr("Add the file with your two-factor accounts, not your password database: the separation only helps when the second factor lives in a file of its own, with a different master password. SailToken adds only files that need a password, because a key file is kept next to the file.")
             }
 
             Paragraph {
                 visible: !page.showsPassword
                 color: Theme.highlightColor
-                text: qsTr("SailFactor keeps the codes for two-factor login in an encrypted file of their own, apart from your password manager.")
+                text: qsTr("SailToken keeps the codes for two-factor login in an encrypted file of their own, apart from your password manager.")
             }
 
             Button {

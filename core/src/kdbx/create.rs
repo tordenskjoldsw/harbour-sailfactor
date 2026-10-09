@@ -82,7 +82,7 @@ fn metadata(name: &str, time: &str) -> Element {
     element(
         "Meta",
         vec![
-            text("Generator", "SailFactor"),
+            text("Generator", "SailToken"),
             text("DatabaseName", name),
             text("DatabaseNameChanged", time),
             text("DatabaseDescription", ""),
