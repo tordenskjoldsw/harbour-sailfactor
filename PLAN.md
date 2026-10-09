@@ -1,6 +1,6 @@
 # SailToken - Project Plan
 
-Status: 2026-10-09 - Phases 0 to 5 done and released as 0.4.0, tested
+Status: 2026-10-09 - Phases 0 to 5 done and released as 0.5.0, tested
 on the Jolla Phone.
 0.1.0 was the MVP (create, unlock, scan or type in accounts, codes that
 match KeePassXC and a real service's login, auto-lock, backups; cold
@@ -11,8 +11,8 @@ file, saving a copy and deleting the file, for the one file the app
 keeps (section 14). Phase 5: merging a copy and the Nextcloud sync,
 ported from SailVault, with warnings about passwords in the file and
 emptying the recycle bin (section 14), released as 0.3.0. 0.4.0 adds
-moving accounts in the list (section 14). Next: Phase 6, after the
-rename to SailToken (section 14, 2026-10-09).
+moving accounts in the list (section 14). 0.5.0 is the same app under
+the name SailToken (section 14, 2026-10-09). Next: Phase 6.
 
 SailToken is the "separate authenticator app" that SailVault's plan
 (section 4 there) left for a later, independent project. It shares no
