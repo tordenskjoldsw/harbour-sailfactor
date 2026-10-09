@@ -1,0 +1,1 @@
+Authenticator for TOTP codes, kept in an encrypted KeePass-compatible (KDBX 4) file of their own, apart from your passwords. Scan QR codes, sync with your own Nextcloud.

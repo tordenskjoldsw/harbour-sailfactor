@@ -43,7 +43,8 @@ The screenshots show a demo file with made-up accounts.
   merge a copy by hand
  Counter-based codes (HOTP) are not supported. The
 [threat model](docs/threat-model.md) describes what the app protects
-against and where its limits are.
+against and where its limits are; the [privacy policy](PRIVACY.md) what it
+does with your data.
 
 ## Building
 
