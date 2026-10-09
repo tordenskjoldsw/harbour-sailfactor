@@ -273,3 +273,13 @@ Verified on the device:
 Not seen on the device: the reworded merge summary and the warning
 texts after `bb51774`.
 
+## Device test of moving accounts (2026-10-09)
+
+Jolla Phone (2026), Sailfish OS 5.2.0.18, the build of `2240ba0` on the
+maintainer's file with sync on. Verified on the device: "Move" puts an
+account in front of the tapped one and "To the end" puts it last, and the
+order stays after locking and unlocking (maintainer's report). That the
+order survives a merge with an account renamed on the computer, and that
+KeePassXC keeps the order item when it saves, is covered by host tests
+(`core/tests/accounts.rs`, `core/tests/totp_keepassxc.rs`).
+

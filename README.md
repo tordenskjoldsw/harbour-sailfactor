@@ -31,8 +31,8 @@ The screenshots show a demo file with made-up accounts.
   Steam Guard, the same codes KeePassXC shows for the same file
 - Reads every way KeePassXC and KeePass store TOTP settings in an entry
 - Copy a code with a tap; the clipboard is cleared after 30 seconds
-- Rename and delete accounts, with a recycle bin and entry history as in
-  KeePassXC
+- Rename, delete and reorder accounts, with a recycle bin and entry
+  history as in KeePassXC
 - Locks after 2 minutes without use and after 30 seconds in the
   background; every change is saved at once, with three backups
 - A file from KeePassXC, with or without a key file, is added from
