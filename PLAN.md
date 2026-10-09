@@ -427,6 +427,16 @@ Open:
 
 Decided:
 
+- Account order (2026-10-09): accounts can be moved in the list. The
+  account's menu has "Move", which opens a page of all accounts; a tap
+  puts the account in front of the tapped one, "To the end" puts it last,
+  so any place takes two taps (moving one step at a time was rejected as
+  too many taps). The order is SailFactor's own, a list of entry UUIDs in
+  the database CustomData item `SailFactor/Order`, not the order of the
+  entries in the file: the merge, following KeePassXC, moves an entry
+  changed on the computer to the end of its group, which would undo a
+  custom order after every sync. KeePassXC keeps the item and shows its
+  own order. Accounts the list does not name follow in file order.
 - Passwords in the file (2026-10-08): SailFactor never writes a password,
   but a file added, merged or synced from KeePassXC can hold entries with
   one. They are kept (criterion 4: a lossless round trip; deleting them
