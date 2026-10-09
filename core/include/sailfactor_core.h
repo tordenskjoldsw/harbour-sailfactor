@@ -169,6 +169,10 @@ int32_t sf_account_add(SfDatabase *database, const SfPending *pending, const uin
 int32_t sf_account_rename(SfDatabase *database, const uint8_t *uuid, const uint8_t *issuer,
                           size_t issuer_length, const uint8_t *name, size_t name_length,
                           int64_t now, bool *changed_out);
+/* Moves the account in front of before, or to the end when before is
+ * null; the order is SailFactor's own, stored in the file. */
+int32_t sf_account_move(SfDatabase *database, const uint8_t *uuid, const uint8_t *before,
+                        bool *changed_out);
 /* Whether sf_account_delete would remove the account for good. */
 int32_t sf_account_deletes_permanently(const SfDatabase *database, const uint8_t *uuid,
                                        bool *permanent_out);

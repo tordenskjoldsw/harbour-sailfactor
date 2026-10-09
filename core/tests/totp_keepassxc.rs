@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use sailfactor_core::accounts;
 use sailfactor_core::kdbx::{CompositeKey, Database, Entry};
 use sailfactor_core::otp::{
     code_at, settings_from_attributes, write_uri, Algorithm, Encoder, OtpError, TotpSettings,
@@ -222,4 +223,47 @@ fn accounts_written_by_sailfactor_show_the_same_code_in_keepassxc() {
         );
         assert_same_code(&file, title, &settings);
     }
+}
+
+#[test]
+fn keepassxc_keeps_the_account_order_when_it_saves() {
+    let mut database = Database::open(FIXTURE, key()).unwrap();
+    let listed = accounts::list(&database).unwrap();
+    let (first, last) = (listed[0].uuid, listed.last().unwrap().uuid);
+    assert!(accounts::move_account(&mut database, &last, Some(&first)).unwrap());
+    let order: Vec<[u8; 16]> = accounts::list(&database)
+        .unwrap()
+        .iter()
+        .map(|account| account.uuid)
+        .collect();
+    let file = TempFile::write("order", &database.save().unwrap());
+
+    // Any edit makes KeePassXC write the whole file again.
+    let mut child = Command::new("keepassxc-cli")
+        .args(["edit", "-q", "-t", "Renamed in KeePassXC"])
+        .arg(&file.0)
+        .arg("No code")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("keepassxc-cli must be installed");
+    writeln!(child.stdin.take().unwrap(), "{PASSWORD}").unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let saved = Database::open(&std::fs::read(&file.0).unwrap(), key()).unwrap();
+    let after: Vec<[u8; 16]> = accounts::list(&saved)
+        .unwrap()
+        .iter()
+        .map(|account| account.uuid)
+        .collect();
+    assert_eq!(
+        after, order,
+        "KeePassXC dropped or changed SailFactor/Order"
+    );
 }

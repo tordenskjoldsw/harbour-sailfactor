@@ -156,6 +156,43 @@ pub unsafe extern "C" fn sf_account_list_kind(
     SF_OK
 }
 
+/// Moves the account with `uuid` in front of the account `before`, or to
+/// the end when `before` is null; `changed_out` tells whether the order
+/// changed. The order is stored in the file and saved with the next save.
+///
+/// # Safety
+///
+/// `database` must be a live handle not in use by another thread; `uuid`
+/// valid for 16 bytes; `before` null or valid for 16 bytes; `changed_out`
+/// valid for one write.
+#[no_mangle]
+pub unsafe extern "C" fn sf_account_move(
+    database: *mut SfDatabase,
+    uuid: *const u8,
+    before: *const u8,
+    changed_out: *mut bool,
+) -> i32 {
+    // SAFETY: guaranteed by the caller.
+    let Some(changed_out) = (unsafe { changed_out.as_mut() }) else {
+        return SF_INVALID_ARGUMENT;
+    };
+    *changed_out = false;
+    // SAFETY: guaranteed by the caller.
+    let (Some(database), Some(uuid)) = (unsafe { database.as_mut() }, unsafe { read_uuid(uuid) })
+    else {
+        return SF_INVALID_ARGUMENT;
+    };
+    // SAFETY: as above; null means the end.
+    let before = unsafe { read_uuid(before) };
+    match accounts::move_account(&mut database.database, &uuid, before.as_ref()) {
+        Ok(changed) => {
+            *changed_out = changed;
+            SF_OK
+        }
+        Err(error) => kdbx_status(error),
+    }
+}
+
 /// Whether the account's entry stores a password, such as one from
 /// KeePassXC. The password itself never leaves the core.
 ///

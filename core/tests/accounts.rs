@@ -230,3 +230,71 @@ fn emptying_the_recycle_bin_removes_deleted_accounts_for_good() {
         .any(|deleted| deleted.uuid == uuid));
     assert!(!accounts::empty_recycle_bin(&mut database, NOW).unwrap());
 }
+
+fn issuers(database: &Database) -> Vec<String> {
+    accounts::list(database)
+        .unwrap()
+        .iter()
+        .map(|account| account.issuer.to_string())
+        .collect()
+}
+
+#[test]
+fn accounts_move_before_another_or_to_the_end() {
+    let mut database = open();
+    let original = issuers(&database);
+    let last = uuid_of(&database, original.last().unwrap());
+    let first = uuid_of(&database, &original[0]);
+    assert!(accounts::move_account(&mut database, &last, Some(&first)).unwrap());
+    let moved = issuers(&database);
+    assert_eq!(moved[0], *original.last().unwrap());
+    assert_eq!(moved[1..], original[..original.len() - 1]);
+
+    assert!(accounts::move_account(&mut database, &last, None).unwrap());
+    assert_eq!(issuers(&database), original);
+    assert!(!accounts::move_account(&mut database, &last, None).unwrap());
+    assert!(!accounts::move_account(&mut database, &first, Some(&first)).unwrap());
+    assert_eq!(
+        accounts::move_account(&mut database, &first, Some(&[0xee; UUID_LENGTH])),
+        Err(KdbxError::UnknownEntry)
+    );
+}
+
+#[test]
+fn the_order_survives_a_save_and_merges() {
+    let mut database = open();
+    let older_copy = open();
+    let original = issuers(&database);
+    let steam = uuid_of(&database, "Steam");
+    let first = uuid_of(&database, &original[0]);
+    assert!(accounts::move_account(&mut database, &steam, Some(&first)).unwrap());
+    let moved = issuers(&database);
+
+    let reopened = Database::open(
+        &database.save().unwrap(),
+        CompositeKey::new(Some(b"sailvault-fixture"), None).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(issuers(&reopened), moved);
+
+    // A copy from before the move, such as the one on Nextcloud, does not
+    // undo it.
+    database.merge_from(&older_copy).unwrap();
+    assert_eq!(issuers(&database), moved);
+
+    // An account renamed on the computer stays where it is here, where
+    // KeePassXC's merge rules move the changed entry to the end of its group.
+    let mut edited = open();
+    let renamed = uuid_of(&edited, "SHA-256 eight digits");
+    accounts::rename(&mut edited, &renamed, "SHA-256 renamed", "bob", NOW + 60).unwrap();
+    database.merge_from(&edited).unwrap();
+    let merged = issuers(&database);
+    let expected: Vec<String> = moved
+        .iter()
+        .map(|issuer| match issuer.as_str() {
+            "SHA-256 eight digits" => "SHA-256 renamed".to_owned(),
+            other => other.to_owned(),
+        })
+        .collect();
+    assert_eq!(merged, expected);
+}
