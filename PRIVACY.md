@@ -2,7 +2,7 @@
 
 SailToken is an authenticator for two-factor login codes (TOTP) on
 Sailfish OS. This policy describes what the app does with your data. It
-applies to SailToken 0.4 and later.
+applies to SailToken 0.5 and later.
 
 ## What SailToken collects
 
