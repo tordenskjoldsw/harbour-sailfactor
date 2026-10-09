@@ -153,6 +153,14 @@ Page {
                                                 "name": model.name })
                 }
                 MenuItem {
+                    // A filtered list has no place to move to.
+                    visible: accounts.query.trim().length === 0 && listView.count > 1
+                    text: qsTr("Move")
+                    onClicked: pageStack.push(Qt.resolvedUrl("MovePage.qml"),
+                                              { "accountId": model.accountId,
+                                                "issuer": model.issuer })
+                }
+                MenuItem {
                     text: qsTr("Delete")
                     onClicked: page.deleteAccount(model.accountId, model.issuer)
                 }

@@ -83,6 +83,7 @@ DISTFILES += \
     qml/pages/DeleteFileDialog.qml \
     qml/pages/HelpPage.qml \
     qml/pages/MergePage.qml \
+    qml/pages/MovePage.qml \
     qml/pages/NewFileDialog.qml \
     qml/pages/RenameDialog.qml \
     qml/pages/SaveCopyDialog.qml \
