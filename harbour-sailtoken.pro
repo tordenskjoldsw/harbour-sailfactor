@@ -53,8 +53,16 @@ else: error("Unsupported QT_ARCH for the Rust core: $$QT_ARCH")
 RUST_TARGET_DIR = $$OUT_PWD/rust-target
 RUST_STATICLIB = $$RUST_TARGET_DIR/$$RUST_TRIPLE/release/libsailtoken_core.a
 
+# The binary would otherwise carry the build machine's absolute source
+# paths in Rust's panic locations. RUSTFLAGS replaces the rustflags of
+# .cargo/config.toml, so the aarch64 flag that enables the ARMv8 AES
+# instructions is repeated here.
+RUST_FLAGS = --remap-path-prefix=$$PWD=.
+equals(QT_ARCH, arm64): RUST_FLAGS += --cfg aes_armv8
+
 rust_core.target = $$RUST_STATICLIB
-rust_core.commands = cd $$PWD && CARGO_HOME=$$OUT_PWD/cargo-home cargo build --release --offline --locked \
+rust_core.commands = cd $$PWD && CARGO_HOME=$$OUT_PWD/cargo-home RUSTFLAGS=\"$$RUST_FLAGS\" \
+    cargo build --release --offline --locked \
     --target $$RUST_TRIPLE \
     --manifest-path $$PWD/core/Cargo.toml --target-dir $$RUST_TARGET_DIR
 rust_core.depends = FORCE
