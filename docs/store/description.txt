@@ -2,7 +2,7 @@ SailFactor keeps the codes for two-factor login (TOTP) on your Sailfish phone, i
 
 Features
 - Add an account by scanning the QR code a service shows, or by typing in its secret. The first code shows before the account is saved, so you can finish the service's setup with it.
-- Codes for SHA-1, SHA-256 and SHA-512, 1 to 10 digits, any period, and Steam Guard, the same codes KeePassXC shows for the same file. SailFactor reads every way KeePassXC and KeePass store TOTP settings.
+- Codes for SHA-1, SHA-256 and SHA-512, 1 to 10 digits and any period, the same codes KeePassXC shows for the same file. SailFactor reads every way KeePassXC and KeePass store TOTP settings.
 - Copy a code with a tap; the clipboard is cleared after 30 seconds.
 - Rename, delete and reorder accounts: move one to any place in the list with two taps. Deleted accounts go to a recycle bin, which you can empty in the settings.
 - Create a new file with Argon2id at three protection levels, or add an existing one from KeePassXC, with or without a key file. Older KDBX 3.1 files are stored as KDBX 4 with Argon2id; the original file stays unchanged.
@@ -25,4 +25,4 @@ Permissions
 
 SailFactor is free software under the MIT license. The source code, the threat model and the security review are on GitHub.
 
-SailFactor is an independent app. It is not affiliated with KeePass, KeePassXC, Nextcloud or Steam.
+SailFactor is an independent app. It is not affiliated with KeePass, KeePassXC or Nextcloud.
