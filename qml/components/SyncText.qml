@@ -1,5 +1,5 @@
 import QtQuick 2.0
-import harbour.sailfactor 1.0
+import harbour.sailtoken 1.0
 
 // Texts for sync problems, shared by the pages that show them.
 QtObject {

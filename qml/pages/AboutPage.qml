@@ -5,7 +5,7 @@ import "../components"
 Page {
     id: page
 
-    readonly property string repository: "https://github.com/tordenskjoldsw/harbour-sailfactor"
+    readonly property string repository: "https://github.com/tordenskjoldsw/harbour-sailtoken"
 
     allowedOrientations: Orientation.All
 
@@ -28,7 +28,7 @@ Page {
                 width: Theme.iconSizeExtraLarge
                 height: width
                 sourceSize { width: width; height: height }
-                source: "/usr/share/icons/hicolor/172x172/apps/harbour-sailfactor.png"
+                source: "/usr/share/icons/hicolor/172x172/apps/harbour-sailtoken.png"
             }
 
             Column {

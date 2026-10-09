@@ -38,15 +38,15 @@ int main(int argc, char *argv[])
     // Must match the Sailjail OrganizationName and ApplicationName, which
     // decide the writable data and config directories.
     QCoreApplication::setOrganizationName(QStringLiteral("de.tordenskjold"));
-    QCoreApplication::setApplicationName(QStringLiteral("sailfactor"));
+    QCoreApplication::setApplicationName(QStringLiteral("sailtoken"));
 
-    qmlRegisterType<AccountListModel>("harbour.sailfactor", 1, 0, "AccountListModel");
-    qmlRegisterType<FrameScanner>("harbour.sailfactor", 1, 0, "FrameScanner");
-    qmlRegisterUncreatableType<Authenticator>("harbour.sailfactor", 1, 0, "Authenticator",
+    qmlRegisterType<AccountListModel>("harbour.sailtoken", 1, 0, "AccountListModel");
+    qmlRegisterType<FrameScanner>("harbour.sailtoken", 1, 0, "FrameScanner");
+    qmlRegisterUncreatableType<Authenticator>("harbour.sailtoken", 1, 0, "Authenticator",
                                               QStringLiteral("Use the authenticator context property"));
-    qmlRegisterUncreatableType<Databases>("harbour.sailfactor", 1, 0, "Databases",
+    qmlRegisterUncreatableType<Databases>("harbour.sailtoken", 1, 0, "Databases",
                                           QStringLiteral("Use the databases context property"));
-    qmlRegisterUncreatableType<Sync>("harbour.sailfactor", 1, 0, "Sync",
+    qmlRegisterUncreatableType<Sync>("harbour.sailtoken", 1, 0, "Sync",
                                      QStringLiteral("Use the sync context property"));
 
     Databases databases;

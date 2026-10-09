@@ -1,7 +1,7 @@
 import QtQuick 2.0
 import QtMultimedia 5.6
 import Sailfish.Silica 1.0
-import harbour.sailfactor 1.0
+import harbour.sailtoken 1.0
 import "../components"
 
 // The camera viewfinder until a QR code with a TOTP account is in view; then

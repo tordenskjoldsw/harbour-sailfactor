@@ -20,7 +20,7 @@ IMPLEMENTATION.md
 # sfdk / qmake build output
 /RPMS/
 /build*/
-/harbour-sailfactor
+/harbour-sailtoken
 /documentation.list
 *.o
 *.so

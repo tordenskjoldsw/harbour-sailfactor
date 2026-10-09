@@ -1,10 +1,10 @@
-Name:       harbour-sailfactor
+Name:       harbour-sailtoken
 
 Summary:    Authenticator for TOTP codes in a KeePass-compatible file
 Version:    0.4.0
 Release:    1
 License:    MIT
-URL:        https://github.com/tordenskjoldsw/harbour-sailfactor
+URL:        https://github.com/tordenskjoldsw/harbour-sailtoken
 Source0:    %{name}-%{version}.tar.bz2
 Requires:   sailfishsilica-qt5 >= 0.10.9
 BuildRequires:  pkgconfig(sailfishapp) >= 1.0.2
@@ -17,7 +17,7 @@ BuildRequires:  rust
 BuildRequires:  cargo
 
 %description
-SailFactor is an independent, open-source authenticator for TOTP codes.
+SailToken is an independent, open-source authenticator for TOTP codes.
 It keeps the accounts in an encrypted KeePass-compatible (KDBX4) file,
 apart from the password manager.
 

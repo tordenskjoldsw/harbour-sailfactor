@@ -21,7 +21,7 @@ fi
     i=1
     while [ \$i -le $runs ]; do
         read up rest < /proc/uptime
-        /usr/bin/harbour-sailfactor --startup-trace >/tmp/sailfactor-trace.txt 2>&1 &
+        /usr/bin/harbour-sailtoken --startup-trace >/tmp/sailfactor-trace.txt 2>&1 &
         pid=\$!
         sleep 4
         frame=\$(grep -a -o 'first-frame-boottime-ms=[0-9]*' /tmp/sailfactor-trace.txt | cut -d= -f2)

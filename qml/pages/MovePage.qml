@@ -1,6 +1,6 @@
 import QtQuick 2.0
 import Sailfish.Silica 1.0
-import harbour.sailfactor 1.0
+import harbour.sailtoken 1.0
 import "../components"
 
 // Moves an account to any place in the list with one tap: on the account

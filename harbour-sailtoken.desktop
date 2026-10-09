@@ -1,13 +1,13 @@
 [Desktop Entry]
 Type=Application
 X-Nemo-Application-Type=silica-qt5
-Icon=harbour-sailfactor
-Exec=harbour-sailfactor
-Name=SailFactor
+Icon=harbour-sailtoken
+Exec=harbour-sailtoken
+Name=SailToken
 
 [X-Sailjail]
 # Changing OrganizationName or ApplicationName moves the app's data
 # directories, so keep both stable once released.
 OrganizationName=de.tordenskjold
-ApplicationName=sailfactor
+ApplicationName=sailtoken
 Permissions=Camera;Documents;Downloads;Internet

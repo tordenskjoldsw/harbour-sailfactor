@@ -1,6 +1,6 @@
 import QtQuick 2.0
 import Sailfish.Silica 1.0
-import harbour.sailfactor 1.0
+import harbour.sailtoken 1.0
 import "pages"
 
 ApplicationWindow {

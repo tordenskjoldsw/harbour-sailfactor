@@ -1,4 +1,4 @@
-TARGET = harbour-sailfactor
+TARGET = harbour-sailtoken
 
 CONFIG += sailfishapp
 QT += multimedia network
@@ -68,7 +68,7 @@ LIBS += $$RUST_STATICLIB -lpthread -ldl -lm
 QMAKE_LFLAGS += -Wl,-z,relro,-z,now -s
 
 DISTFILES += \
-    qml/harbour-sailfactor.qml \
+    qml/harbour-sailtoken.qml \
     qml/components/Paragraph.qml \
     qml/components/PasswordInput.qml \
     qml/components/ProtectionComboBox.qml \
@@ -94,7 +94,7 @@ DISTFILES += \
     qml/pages/ThirdPartyPage.qml \
     qml/pages/thirdparty.js \
     qml/pages/UnlockPage.qml \
-    rpm/harbour-sailfactor.spec \
-    harbour-sailfactor.desktop
+    rpm/harbour-sailtoken.spec \
+    harbour-sailtoken.desktop
 
 SAILFISHAPP_ICONS = 86x86 108x108 128x128 172x172
