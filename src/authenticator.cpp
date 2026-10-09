@@ -502,6 +502,18 @@ bool Authenticator::deleteAccount(const QString &accountId)
     });
 }
 
+bool Authenticator::moveAccount(const QString &accountId, const QString &beforeId)
+{
+    const QByteArray uuid = accountUuid(accountId);
+    const QByteArray before = beforeId.isEmpty() ? QByteArray() : accountUuid(beforeId);
+    if (uuid.isEmpty() || (!beforeId.isEmpty() && before.isEmpty()))
+        return false;
+    return change([&](SfDatabase *database, int64_t, bool &changed) {
+        return sf_account_move(database, bytePointer(uuid),
+                               before.isEmpty() ? nullptr : bytePointer(before), &changed);
+    });
+}
+
 bool Authenticator::emptyRecycleBin()
 {
     return change([](SfDatabase *database, int64_t now, bool &changed) {

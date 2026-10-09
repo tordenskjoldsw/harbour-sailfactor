@@ -160,6 +160,9 @@ public:
     // moving it to the recycle bin.
     Q_INVOKABLE bool deletesPermanently(const QString &accountId);
     Q_INVOKABLE bool deleteAccount(const QString &accountId);
+    // Moves the account in front of beforeId, or to the end when beforeId is
+    // empty, and saves; the order is SailFactor's own, stored in the file.
+    Q_INVOKABLE bool moveAccount(const QString &accountId, const QString &beforeId);
     // Removes the recycle bin's content for good and saves; the sync then
     // removes it on the other copies too.
     Q_INVOKABLE bool emptyRecycleBin();
