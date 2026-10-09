@@ -1,3 +1,8 @@
+* Fri Oct 09 2026 Tobias Kaminski <instance_maintainer@protonmail.com> - 0.4.0-1
+- Move an account to any place in the list with two taps; the order is
+  kept in the file and survives the sync
+- The icon has the same blue as SailVault's
+
 * Thu Oct 08 2026 Tobias Kaminski <instance_maintainer@protonmail.com> - 0.3.0-1
 - Sync with your own Nextcloud while the app runs; changes on the phone
   and on the computer are merged as KeePassXC merges them
