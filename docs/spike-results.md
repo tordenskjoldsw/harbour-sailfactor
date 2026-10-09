@@ -11,7 +11,7 @@ the host.
 - Rust in the targets: 1.75. The host runs the core tests with Rust 1.97
   and 1.75; both pass.
 - qmake builds the core with `cargo build --release --offline --locked`
-  and an explicit target triple, then links `libsailfactor_core.a`
+  and an explicit target triple, then links `libsailtoken_core.a`
   statically. The core has no dependencies yet, so the vendored sources
   are not exercised; Phase 1 adds the first crate.
 - The armv7hl build needs the top-level objects, `Makefile` and binary of
@@ -20,7 +20,7 @@ the host.
 ## Harbour validator (Phase 0, 2026-10-07)
 
 `sfdk check` (RPM Validation script v1.110, rpmlint 2.0.0) on
-`harbour-sailfactor-0.1.0-1` built with `-c no-fix-version`:
+`harbour-sailtoken-0.1.0-1` built with `-c no-fix-version`:
 
 | Architecture | Validator | rpmlint |
 |--------------|-----------|---------|
@@ -28,7 +28,7 @@ the host.
 | armv7hl | passed | `E: no-changelogname-tag` |
 
 The rpmlint error is reported as a warning (`TreatErrorsAsWarnings`). It
-goes away with the first entry in `rpm/harbour-sailfactor.changes`, which
+goes away with the first entry in `rpm/harbour-sailtoken.changes`, which
 is written for the 0.1.0 release.
 
 Hardening, checked with `readelf` in both RPMs: a `GNU_RELRO` segment with
@@ -90,7 +90,7 @@ Verified on the device:
 ### Measurements
 
 Map is the time `QVideoFrame::map` takes on the render thread, decode the
-time of `sf_qr_decode` (frames above 1280 pixels are subsampled to 1280 x
+time of `st_qr_decode` (frames above 1280 pixels are subsampled to 1280 x
 720 first). Time to code runs from the camera becoming active to the
 first decoded code, so it includes the camera start and aiming the phone.
 
@@ -171,7 +171,7 @@ frame, and the preview stays smooth. This replaces the Phase 1 setting
 of 1280 x 720 with every second frame decoded on the render thread;
 decoding now runs on a worker thread and skips frames while busy.
 
-A login at a real service with a code from SailFactor succeeded
+A login at a real service with a code from SailToken succeeded
 (verified on the device, 2026-10-08).
 
 ## Device test of the security fixes (Phase 4, 2026-10-08)
@@ -198,7 +198,7 @@ content), copied to Downloads with `sfdk device exec dd`.
 Verified on the device:
 
 - The existing file unlocks as before, with no migration.
-- "Save a copy for the computer" writes `SailFactor.kdbx` to Downloads,
+- "Save a copy for the computer" writes `SailToken.kdbx` to Downloads,
   owner-only; its SHA-256 equals the app's file, and KeePassXC on the
   computer opens it with the master password.
 - "Delete the file" in the settings, behind the dialog and its switch,
@@ -239,7 +239,7 @@ Verified on the device:
   then held the confirmed configuration and the server's ETag, and the
   file had its sync entry, with the previous version in the backups.
 - KeePassXC on the computer shows the entry "Nextcloud sync
-  (SailFactor)"; the account list on the phone does not.
+  (SailToken)"; the account list on the phone does not.
 - An account added on the computer and uploaded by the Nextcloud client
   appears on the phone after unlocking, with its code.
 - An account renamed on the phone reaches the computer.

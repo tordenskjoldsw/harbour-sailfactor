@@ -1,4 +1,4 @@
-# SailFactor threat model
+# SailToken threat model
 
 Status: 2026-10-08, Phase 5 (the app keeps one file, creates it or adds
 it from Documents or Downloads with an optional key file, saves a copy
@@ -14,14 +14,14 @@ points marked "checked for SailVault" were measured on the same Jolla Phone
 
 ## What the separation protects
 
-SailFactor keeps the second factor of logins in its own encrypted file with
+SailToken keeps the second factor of logins in its own encrypted file with
 its own master password, apart from the password manager. If the password
 manager's file or its master password leaks, the codes stay safe. This only
 holds when the two master passwords differ; the app says so when a file is
 created.
 
 The separation also only holds while passwords stay out of this file.
-SailFactor never writes a password, but a file added, merged or synced
+SailToken never writes a password, but a file added, merged or synced
 from KeePassXC can bring some in. The app keeps them, since deleting them
 would delete them on the computer too, and never shows them. It counts
 entries with a password and no one-time code when a file is added or
@@ -39,13 +39,13 @@ apps, and whoever controls it can wait for both to be unlocked.
 | An account waiting to be added | In the core, from a scan or a typed secret until it is added or dropped; dropped on lock |
 | Codes | Computed in the core; on screen while the list shows; on the clipboard for up to 30 seconds after a copy |
 | Master password | Typed into the unlock page; never stored |
-| The file | `~/.local/share/de.tordenskjold/sailfactor/databases/SailFactor.kdbx`, owner-only permissions |
-| Key file | `~/.local/share/de.tordenskjold/sailfactor/keyfiles/SailFactor.key`, unencrypted, owner-only permissions, only for a file added with one; read into RAM during an unlock |
+| The file | `~/.local/share/de.tordenskjold/sailtoken/databases/SailToken.kdbx`, owner-only permissions |
+| Key file | `~/.local/share/de.tordenskjold/sailtoken/keyfiles/SailToken.key`, unencrypted, owner-only permissions, only for a file added with one; read into RAM during an unlock |
 | Copies the user saves, originals not yet deleted, copies merged in | Documents or Downloads, encrypted like the file; key files unencrypted |
-| ETag and file digest of the last sync, digest of the confirmed sync configuration | `~/.config/de.tordenskjold/sailfactor/settings.ini` (no secrets); dropped when the file is deleted |
+| ETag and file digest of the last sync, digest of the confirmed sync configuration | `~/.config/de.tordenskjold/sailtoken/settings.ini` (no secrets); dropped when the file is deleted |
 | Nextcloud app password, server, login name, path, pinned certificate | An entry of the file, encrypted like every entry and not shown in the account list; in RAM while a sync runs, also in Qt buffers that cannot be wiped |
 | Copy of the file on Nextcloud | The user's Nextcloud, encrypted like the file |
-| Backups | `~/.local/share/de.tordenskjold/sailfactor/backups/`: the three newest versions the app replaced, encrypted like the file, owner-only like the file |
+| Backups | `~/.local/share/de.tordenskjold/sailtoken/backups/`: the three newest versions the app replaced, encrypted like the file, owner-only like the file |
 | Camera frames | While the scan page is open: the camera stack's buffers, and one copy of the brightness per decoded frame |
 
 ## Architecture and trust boundaries
@@ -55,7 +55,7 @@ QML / JavaScript engine   issuers, account names, current codes
         |
 C++ bridge (Qt 5.6)       file reading and writing, backups, clipboard, lock state,
         |                 timers, camera frames
-        |  C API (core/include/sailfactor_core.h)
+        |  C API (core/include/sailtoken_core.h)
 Rust core                 KDBX4 parsing and writing, KDF, encryption, TOTP,
                           otpauth URIs, QR decoding
 ```
@@ -254,9 +254,9 @@ Protected:
 - The setup page asks for a Nextcloud login that does not need a code from
   this file, and recommends an app password: after a lost phone, the copy
   on Nextcloud and KeePassXC on a computer are the way back to the codes.
-- The sync entry, "Nextcloud sync (SailFactor)", carries its own marker, so
+- The sync entry, "Nextcloud sync (SailToken)", carries its own marker, so
   a SailVault sync entry in a file merged or added here is never taken for
-  SailFactor's configuration, and the other way round.
+  SailToken's configuration, and the other way round.
 
 Limits:
 

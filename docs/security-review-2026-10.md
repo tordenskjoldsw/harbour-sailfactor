@@ -21,7 +21,7 @@ Points that could not be checked are marked **unverified**.
 The KDBX code (`core/src/kdbx/`, `secret.rs`, `random.rs`,
 `argon2_memory.rs`) matches SailVault `8a9efff` byte for byte
 (`tools/diff-sailvault-core.sh`), so SailVault's findings and fixes in it
-apply unchanged; this review covers how SailFactor uses it.
+apply unchanged; this review covers how SailToken uses it.
 
 Result: no critical, high or medium findings, and no way to read the
 file or a seed without the master password. The low findings are
@@ -69,9 +69,9 @@ on the host; `sfdk build` and `sfdk check` for aarch64 pass with 0
 rpmlint errors; the rebuilt binary keeps PIE, `BIND_NOW`, `GNU_RELRO` and
 is stripped. The fixed build passed the device tests below.
 
-## SailVault's checklist applied to SailFactor
+## SailVault's checklist applied to SailToken
 
-| SailVault finding | SailFactor |
+| SailVault finding | SailToken |
 |-------------------|------------|
 | M1 timers during suspend | Deadlines on `CLOCK_BOOTTIME` in `AutoLock` and `ClipboardGuard`, checked before every access, on activation and by a 5 s watchdog; verified on the device in Phase 3 (lock after the display was off, clipboard cleared after 30 s) |
 | M2 unwiped key material | The copied code with the `zeroize` features and core-owned Argon2 memory; HMAC and SHA states cannot be wiped, recorded in the threat model |
@@ -94,7 +94,7 @@ is stripped. The fixed build passed the device tests below.
 | Harbour M1 forbidden XML characters | Dropped when text enters the model (`layout.rs`, `replace_text`), carriage returns written as references; covers issuer and account names from QR codes |
 | Harbour M2 clipboard after the field changed | Not applicable: the guard compares against the copied code itself |
 | Harbour M3 growing buffers | `SecretBuffer` in the copied code; the QR payload writer and the URI writer never reallocate |
-| Harbour L1, L2 attachments, nesting | In the copied code; SailFactor adds entries to the root group only |
+| Harbour L1, L2 attachments, nesting | In the copied code; SailToken adds entries to the root group only |
 | Harbour L3, L4 backup rotation | Rotation matches exactly `<name>-<timestamp>.kdbx`; a file changed elsewhere is kept outside the rotation |
 | Harbour L5 unlock page while unlocked | Returning to the unlock page locks; the path is fixed in 0.1.0 |
 | Harbour L6 import kind | Not applicable (no import) |
@@ -153,7 +153,7 @@ allocating the copy; the core's bound of 4096 pixels per side applied
 only after the copy. Frame metadata that disagrees with the buffer, or a
 side above 46340, would read past the mapping or overflow the allocation.
 The camera stack is outside the attacker model, so this is robustness.
-Fix: the core's bound (`SF_MAX_FRAME_DIMENSION`, new in the header) is
+Fix: the core's bound (`ST_MAX_FRAME_DIMENSION`, new in the header) is
 applied before any arithmetic, and the last byte of the last row must lie
 within `mappedBytes()`; a buffer that reports no size is trusted as before
 (whether the Jolla Phone's GL texture frames report one is
@@ -188,7 +188,7 @@ handed to the lenient Base32 reader. KeePassXC reads the value with
 encoded when it stands for `+`, for a byte that is not UTF-8, or when the
 `%` has no two hex digits; its Base32 reader then drops the `%` and keeps
 the hex digits as symbols. Measured with `keepassxc-cli` 2.7.12:
-`secret=JBSWY3DPEHPK3PXP%2B` gives SailFactor the key `JBSWY3DPEHPK3PXP`
+`secret=JBSWY3DPEHPK3PXP%2B` gives SailToken the key `JBSWY3DPEHPK3PXP`
 and KeePassXC `JBSWY3DPEHPK3PXP2B`, so each app shows a plausible but
 different code for that entry, against criterion 2. No service issues such
 a secret; the trigger is a hand-edited or garbled attribute. The lossy
@@ -205,30 +205,30 @@ four measured cases are tests now.
 The header promises that every output is null, empty or zero on an error,
 but several entry points checked the handle and the output pointers in one
 step and returned before writing the outputs, so a null handle left a
-valid output pointer untouched (`sf_account_code`, `sf_account_rename`,
-`sf_account_delete`, `sf_account_deletes_permanently`, `sf_pending_text`,
-`sf_pending_code`, `sf_database_open`, `sf_database_save`, and the UUID
+valid output pointer untouched (`st_account_code`, `st_account_rename`,
+`st_account_delete`, `st_account_deletes_permanently`, `st_pending_text`,
+`st_pending_code`, `st_database_open`, `st_database_save`, and the UUID
 and kind outputs of the list). The bridge initializes every output before
 the call, so nothing was affected; a caller relying on the promise would
-have freed an uninitialized `SfString`. Fix: outputs are validated and
+have freed an uninitialized `StString`. Fix: outputs are validated and
 cleared first, before any other check.
 
 ### L8. The header's threading rule was narrower than what the bridge does
 
-`core/include/sailfactor_core.h:81-85`
+`core/include/sailtoken_core.h:81-85`
 
 "A handle is used by one thread at a time", while the bridge runs
-`sf_database_save` on a pool thread and keeps listing accounts and
+`st_database_save` on a pool thread and keeps listing accounts and
 computing codes on the main thread with the same handle. This is sound:
 the handle types are asserted `Send + Sync`, `save` takes `&self`, there
 is no `unsafe` outside `ffi/` to hide interior mutability, and every
 mutating call is refused while a save runs. Fix: the header states the
 real rule, concurrent readers through a const handle, exclusive access for
-mutable handles and `sf_database_free`.
+mutable handles and `st_database_free`.
 
 ### L9. The remorse text shows an issuer through a Silica-internal label (unverified)
 
-`qml/pages/AccountListPage.qml:28-36`, `qml/harbour-sailfactor.qml:18-21`
+`qml/pages/AccountListPage.qml:28-36`, `qml/harbour-sailtoken.qml:18-21`
 
 Every app-owned label that shows an issuer or account name is plain text.
 The remorse text "Deleting %1 permanently" goes to Silica's
@@ -243,7 +243,7 @@ No change.
 
 ## Info
 
-- I1. A frame the core refused (`SF_INVALID_ARGUMENT`, only for more
+- I1. A frame the core refused (`ST_INVALID_ARGUMENT`, only for more
   than 4096 pixels per side) was reported as "holds no two-factor
   account"; it is reported as unsupported frames now (with L3).
 - I2. `ClipboardGuard::keepCopiedValue`, SailVault's fix for a clipboard
@@ -260,11 +260,11 @@ No change.
 - I5. Deviations from KeePassXC beyond the two the plan listed, measured
   with `keepassxc-cli` 2.7.12 on a probe file of 50 entries:
   `TimeOtp-Length` above 10 (KeePassXC computes a 12-digit code,
-  SailFactor shows the entry as unreadable), a URI without a secret or
+  SailToken shows the entry as unreadable), a URI without a secret or
   with an empty one (KeePassXC computes a code from the empty key), and
   `TOTP Settings` without a seed or an `otp` value in neither form
-  (KeePassXC shows no TOTP, SailFactor an unreadable entry). Recorded in
-  `PLAN.md` section 5 and the threat model; SailFactor's behavior is kept.
+  (KeePassXC shows no TOTP, SailToken an unreadable entry). Recorded in
+  `PLAN.md` section 5 and the threat model; SailToken's behavior is kept.
 - I6. `TotpSettings` exposed `digits` and `period` as public fields; safe
   code inside the crate could have set a period of zero after
   construction and made `code_at` abort. Not reachable through the C API.
@@ -304,10 +304,10 @@ I5).
 ## Checked and found correct
 
 - Seeds stay in the core: the C API hands out issuers, account names,
-  the code for one time step and the seconds left (`sf_account_code`,
-  `sf_pending_code`, `sf_account_list_text`, `sf_pending_text`); every
-  string crossing it is wiped by `sf_string_free`; `TotpSettings` leaves
-  the secret out of its `Debug` output; `SfPending` has none. A typed
+  the code for one time step and the seconds left (`st_account_code`,
+  `st_pending_code`, `st_account_list_text`, `st_pending_text`); every
+  string crossing it is wiped by `st_string_free`; `TotpSettings` leaves
+  the secret out of its `Debug` output; `StPending` has none. A typed
   secret crosses once, as UTF-8 bytes wiped by `CoreText`.
 - Bounds on untrusted input: URIs and attribute values 2048 bytes, 32
   query items, decoded secret at most 512 bytes, digits 1 to 10, period 1
@@ -318,7 +318,7 @@ I5).
   1280 pixels. Tests cover each bound (`core/tests/otp.rs`,
   `core/tests/qr.rs`).
 - No panic reachable from input: the one `expect` in
-  `sf_pending_from_frame` follows the decoder's own UTF-8 check; HMAC
+  `st_pending_from_frame` follows the decoder's own UTF-8 check; HMAC
   accepts keys of any length; `10u64.pow(digits)` with digits at most 10;
   the truncation offset indexes within the shortest digest (SHA-1, 20
   bytes, offset at most 15 plus 3); `split_label` slices at ASCII
@@ -335,11 +335,11 @@ I5).
   the deviations recorded in I5 and L6. Countdowns are recomputed from
   the wall clock at every tick and never counted down; the list ticks only
   in the foreground.
-- Frames: a smoke test of 528 frames through `sf_pending_from_frame`
+- Frames: a smoke test of 528 frames through `st_pending_from_frame`
   (1 x 1 to 4096 x 4096, noise, checkerboards, random stride and step)
-  returned only `SF_NOT_FOUND`; one byte short, a side of 4097, a step of
+  returned only `ST_NOT_FOUND`; one byte short, a side of 4097, a step of
   0 or 5, a short stride and `u32::MAX` dimensions were refused with
-  `SF_INVALID_ARGUMENT`. `rqrr` has no `unsafe` and maps writer errors
+  `ST_INVALID_ARGUMENT`. `rqrr` has no `unsafe` and maps writer errors
   without unwrapping; it has not been fuzzed (threat model).
 - HOTP and foreign entries: `rename` writes Title and UserName through
   `update_entry`, `delete` moves the entry; no attribute is rewritten, so
@@ -348,7 +348,7 @@ I5).
 - C API: every entry point checks its pointers, writes null, empty or
   zero outputs first and assigns on success only; `unsafe` only in
   `core/src/ffi/`; handles are freed once by `unique_ptr` owners in the
-  bridge; `SfDatabase`, `SfPending` and `SfAccountList` are asserted
+  bridge; `StDatabase`, `StPending` and `StAccountList` are asserted
   `Send + Sync` at compile time, which is what a save on a pool thread
   while the main thread reads the same handle needs.
 - Bridge: the attempt counter drops stale unlock and save results; a lock
@@ -384,7 +384,7 @@ I5).
   Gui, Qml and Core only; QML imports `QtQuick 2.0`, `QtMultimedia 5.6`,
   `Sailfish.Silica 1.0` and the app's own module; Sailjail permission
   `Camera` only; the RPM holds the binary, the desktop file, icons and
-  `/usr/share/harbour-sailfactor/qml`; `cargo build --release --offline
+  `/usr/share/harbour-sailtoken/qml`; `cargo build --release --offline
   --locked` with an explicit triple, `panic = "abort"`, LTO,
   `overflow-checks` for the core package; the five vendored `build.rs`
   scripts (`crc32fast`, `generic-array`, `libc`, `proc-macro2`, `quote`)

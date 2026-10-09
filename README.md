@@ -1,6 +1,6 @@
-# SailFactor
+# SailToken
 
-![SailFactor: authenticator for Sailfish OS](docs/images/cover.png)
+![SailToken: authenticator for Sailfish OS](docs/images/cover.png)
 
 A TOTP authenticator for Sailfish OS that keeps the second factor apart
 from the password manager. The accounts live in an encrypted file of their
@@ -61,7 +61,7 @@ The RPM lands in `RPMS/`. To run the Harbour validator on it:
 
 ```sh
 sfdk -c no-fix-version build
-sfdk check RPMS/harbour-sailfactor-*.rpm
+sfdk check RPMS/harbour-sailtoken-*.rpm
 ```
 
 The core tests run on the host and need Rust 1.75 or newer:
@@ -73,7 +73,7 @@ cargo test --manifest-path core/Cargo.toml
 ## Contributing
 
 Bug reports and ideas are welcome as
-[issues](https://github.com/tordenskjoldsw/harbour-sailfactor/issues). If
+[issues](https://github.com/tordenskjoldsw/harbour-sailtoken/issues). If
 you plan a pull request, open an issue first so we can agree on the
 approach. Never attach a real secret, a real QR code or a real database,
 not even an encrypted one.
@@ -83,5 +83,5 @@ not even an encrypted one.
 [MIT](LICENSE). The licenses of the bundled Rust crates are listed on the
 About page in the app.
 
-SailFactor is an independent project and not affiliated with KeePass,
+SailToken is an independent project and not affiliated with KeePass,
 KeePassXC or Jolla.

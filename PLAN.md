@@ -1,4 +1,4 @@
-# SailFactor - Project Plan
+# SailToken - Project Plan
 
 Status: 2026-10-09 - Phases 0 to 5 done and released as 0.4.0, tested
 on the Jolla Phone.
@@ -11,13 +11,10 @@ file, saving a copy and deleting the file, for the one file the app
 keeps (section 14). Phase 5: merging a copy and the Nextcloud sync,
 ported from SailVault, with warnings about passwords in the file and
 emptying the recycle bin (section 14), released as 0.3.0. 0.4.0 adds
-moving accounts in the list (section 14). Next: Phase 6. The name was
-chosen on 2026-10-07; a dormant GitHub repository `lanurmi/sailfactor` (an
-integer factoring tool, last commit 2014, never in a store) shares it,
-OpenRepos has no match, the Jolla Store was not searchable without an
-account.
+moving accounts in the list (section 14). Next: Phase 6, after the
+rename to SailToken (section 14, 2026-10-09).
 
-SailFactor is the "separate authenticator app" that SailVault's plan
+SailToken is the "separate authenticator app" that SailVault's plan
 (section 4 there) left for a later, independent project. It shares no
 code repository with SailVault; the KDBX code is copied in, see section 5.
 
@@ -31,7 +28,7 @@ The accounts live in a standard KeePass KDBX4 file with KeePassXC's `otp`
 attribute, so KeePassXC on a PC can open the file, and the file syncs to
 the user's Nextcloud like SailVault's database.
 
-- Package name: `harbour-sailfactor`
+- Package name: `harbour-sailtoken`
 - Primary target: Jolla Phone (2026), aarch64, Sailfish OS 5.2
 - Secondary target: armv7hl (Harbour requires it), then i486 (emulator)
 
@@ -42,7 +39,7 @@ the user's Nextcloud like SailVault's database.
 | 1 | In Harbour | RPM passes the Harbour validator for aarch64 and armv7hl; Jolla QA accepts it |
 | 2 | Correct codes | Every RFC 6238 and RFC 4226 test vector passes; codes match KeePassXC and a reference authenticator for the same `otpauth://` URI on the device |
 | 3 | Secure unlock | The file unlocks with a master password (and optional key file); the KDF runs in the Rust core off the UI thread; key material and secrets stay in the core and are zeroized on lock; nothing on disk unlocks the file without the password |
-| 4 | Lossless KeePassXC round trip | A file written by SailFactor opens in KeePassXC and shows the same codes; a file edited by KeePassXC (new entry with TOTP, renamed entry) reopens in SailFactor with nothing lost |
+| 4 | Lossless KeePassXC round trip | A file written by SailToken opens in KeePassXC and shows the same codes; a file edited by KeePassXC (new entry with TOTP, renamed entry) reopens in SailToken with nothing lost |
 | 5 | No data loss on sync | Concurrent edits on phone and PC merge like KeePassXC; the phone never overwrites a changed remote file without merging |
 | 6 | Fast daily use | Unlock page visible < 1 s after tap; code list visible < 0.3 s after key derivation; a QR code shown on a screen is recognized within 2 s |
 | 7 | Native UI | Silica components only; passes the Sailfish UI "Definition of Done" checklist |
@@ -62,7 +59,7 @@ first-hand):
 | Foil Auth (OpenRepos) | Active (1.1.17, 2026-08); encrypted with Foil | Not in the Jolla Store since 2019; own format, no sync |
 | ownKeepass 2.x (Chum), KeePassRX (OpenRepos) | TOTP inside the password manager | Second factor next to the password; not in Harbour |
 
-SailFactor competes on:
+SailToken competes on:
 
 - **Separation**: the second factor lives in its own encrypted file with
   its own master password, not in the password manager
@@ -94,8 +91,8 @@ holds both apps and both factors.
 - Fingerprint unlock (not reachable from a Harbour app, see SailVault's
   `docs/spike-results.md`)
 - Codes on the cover or on the lock screen
-- Opening SailVault's database from SailFactor: the point is the
-  separation; moving `otp` attributes from the vault into SailFactor is an
+- Opening SailVault's database from SailToken: the point is the
+  separation; moving `otp` attributes from the vault into SailToken is an
   import (Phase 7), never a live link
 
 ## 5. Architecture
@@ -125,7 +122,7 @@ holds both apps and both factors.
 |----------|-----------|
 | Rust core as static library, no I/O | Same reasons as SailVault: memory safety for parsing and crypto, `zeroize`, host-testable, nothing for the validator to see |
 | KDBX code copied from SailVault, not shared as a crate | Decided 2026-10-07: both apps stay standalone repositories; a fix in one is ported to the other by hand. The copy is recorded by SailVault commit and file list (section 14), and `tools/diff-sailvault-core.sh` shows the drift |
-| What is copied | `core/src/kdbx/`, `secret.rs`, `random.rs`, `argon2_memory.rs`, the KDBX fixtures with their README, `tools/gen-kdbx-fixtures.sh` and `tools/kdbx-fixtures/`, unchanged from the SailVault commit that `tools/diff-sailvault-core.sh` records (first copied from `fee532f` on 2026-10-08), except the app's name in a new file's Generator and in the sync entry's title, attribute names and marker (`tools/sailvault-core.patch`, 2026-10-08). The fixture tests are adapted: the Bitwarden cases are dropped. Not copied: `bitwarden`, `ffi`, `password` (SailFactor has its own slim FFI) |
+| What is copied | `core/src/kdbx/`, `secret.rs`, `random.rs`, `argon2_memory.rs`, the KDBX fixtures with their README, `tools/gen-kdbx-fixtures.sh` and `tools/kdbx-fixtures/`, unchanged from the SailVault commit that `tools/diff-sailvault-core.sh` records (first copied from `fee532f` on 2026-10-08), except the app's name in a new file's Generator and in the sync entry's title, attribute names and marker (`tools/sailvault-core.patch`, 2026-10-08). The fixture tests are adapted: the Bitwarden cases are dropped. Not copied: `bitwarden`, `ffi`, `password` (SailToken has its own slim FFI) |
 | TOTP on RustCrypto `hmac` with `sha1` and `sha2` | Established crates; `hmac` and `sha2` are already in the copied code, `sha1` is new (MSRV check pending). Test vectors from RFC 6238 appendix B and RFC 4226 appendix D |
 | QR detection with `rqrr` 0.10 in the core | Pure Rust, `(MIT OR Apache-2.0) AND ISC`, MSRV 1.64 (0.11 needs 1.85); without the `img` feature it only pulls `g2p` and `lru` 0.16 (MSRV 1.70). The C++ side hands over a grayscale buffer, so the core keeps its no-I/O rule |
 | Camera through QtMultimedia 5.6 | `QtMultimedia 5.6`, `libQt5Multimedia.so.5` and the Sailjail permission `Camera` are allowed (validator `allowed_permissions.conf` and the Allowed APIs page, checked 2026-10-07). The frame format on the Jolla Phone is unverified until the Phase 1 spike |
@@ -137,18 +134,18 @@ Attribute forms that KeePassXC reads, in its order (`Totp.cpp`,
 `step;S`, or a URI) with `TOTP Seed`; then `otp` as an `otpauth://` URI
 or in KeeOtp's `key=...&size=...&step=...&otpHashMode=...` form; then
 KeePass 2's `TimeOtp-Secret-Base32`, `TimeOtp-Algorithm`,
-`TimeOtp-Length`, `TimeOtp-Period`. SailFactor reads all of them the same
+`TimeOtp-Length`, `TimeOtp-Period`. SailToken reads all of them the same
 way and writes only the `otp` URI, as KeePassXC does when it saves
 settings. Deliberate deviations, each measured against `keepassxc-cli`
 2.7.12 in the Phase 4 review: KeePassXC shows a TOTP code for a `hotp`
-URI, SailFactor reports it as not supported; a Steam URI without `digits`
+URI, SailToken reports it as not supported; a Steam URI without `digits`
 gets Steam's five characters, where KeePassXC shows six; a
-`TimeOtp-Length` above 10 gives KeePassXC a longer code and SailFactor an
+`TimeOtp-Length` above 10 gives KeePassXC a longer code and SailToken an
 unreadable entry (its bound is ten digits); a URI without a secret, or
 with an empty one, gives KeePassXC a code from the empty key and
-SailFactor an unreadable entry; `TOTP Settings` without a seed, or an
+SailToken an unreadable entry; `TOTP Settings` without a seed, or an
 `otp` value that is neither a URI nor KeeOtp's form, shows no TOTP in
-KeePassXC and an unreadable entry in SailFactor; a secret with a percent
+KeePassXC and an unreadable entry in SailToken; a secret with a percent
 escape other than `%3D` or `%20` is refused, because KeePassXC keeps some
 escapes encoded and reads a different key from them.
 
@@ -180,7 +177,7 @@ of every account. Inherited from SailVault's section 7, with one addition:
 - Save atomically: temporary file, verify by re-reading and comparing the
   model, then rename
 - Keep the last 3 versions as backups in the app's private data directory
-  (`~/.local/share/de.tordenskjold/sailfactor/backups/`); delete them when
+  (`~/.local/share/de.tordenskjold/sailtoken/backups/`); delete them when
   the master password or key file changes
 - Every edit pushes the previous state into entry history and updates
   `LastModificationTime`; deletes go to the recycle bin by default
@@ -196,7 +193,7 @@ from Documents or Downloads are added by unlocking them once and copied
 in. An added file must need a password: its key file is stored next to
 it, so a file that opens with the key file alone would be unlocked by
 what is on the disk (criterion 3). The app keeps one file, always stored
-as `SailFactor` (section 14); a file is added only while there is none,
+as `SailToken` (section 14); a file is added only while there is none,
 and deleting it needs the app unlocked, so nobody removes the accounts
 without the master password. `OrganizationName` and `ApplicationName` in the desktop file never
 change after the first release, since they name the data directory.
@@ -248,7 +245,7 @@ KeePassXC on the PC.
 ## 10. Harbour constraints
 
 - Name prefix `harbour-`, everything except binary, desktop file and icons
-  under `/usr/share/harbour-sailfactor`
+  under `/usr/share/harbour-sailtoken`
 - Only libraries and QML imports from the allowlist; the Rust core is
   statically linked
 - Sailjail permissions, each with a reason: `Camera` (QR scan), `Internet`
@@ -266,7 +263,7 @@ KeePassXC on the PC.
 
 - Repository with `PLAN.md`, `CLAUDE.md` (rules from SailVault, adjusted;
   untracked, ignored by `.gitignore`), `LICENSE` (MIT), `.gitignore`,
-  `harbour-sailfactor.pro`, `rpm/` spec and changes file, desktop file
+  `harbour-sailtoken.pro`, `rpm/` spec and changes file, desktop file
   with the Sailjail section, icons, empty `core/` with `rust-version =
   "1.75"`, `.cargo/config.toml` for vendored sources and `aes_armv8`,
   `tools/` with the SailVault scripts that transfer (`measure-startup.sh`,
@@ -314,7 +311,7 @@ decoded on the device within 2 s; the RPM passes the validator.
   payload never leaves the core), add, rename, delete, save, lock
 - A fixture written by keepassxc-cli with one entry per form KeePassXC
   reads (`tools/gen-totp-fixture.py`), compared with `keepassxc-cli show
-  -t`; accounts written by SailFactor are checked the same way. A fixture
+  -t`; accounts written by SailToken are checked the same way. A fixture
   made in the KeePassXC GUI was dropped on 2026-10-08 as not needed: the
   scripted one covers every form KeePassXC reads
 
@@ -377,7 +374,7 @@ growing the feature set.
   core, and are zeroized on lock
 - No plaintext secret is written to disk or to logs; no log files
 - Crypto only through established crates; never hand-rolled primitives.
-  Not every crate has a formal audit, and SailFactor has had no external
+  Not every crate has a formal audit, and SailToken has had no external
   review
 - Untrusted input has strict bounds: KDBX files (KDF parameters, sizes,
   nesting depth, the limits SailVault settled on), `otpauth://` URIs, QR
@@ -388,7 +385,7 @@ growing the feature set.
 
 ## 13. Lessons from SailVault, applied from the start
 
-| Lesson (where it was found) | What SailFactor does from day one |
+| Lesson (where it was found) | What SailToken does from day one |
 |-----------------------------|-----------------------------------|
 | Timers stand still while the phone sleeps (review M1) | Lock, clipboard and countdown use `CLOCK_BOOTTIME`; the countdown is recomputed from the wall clock on every tick, never counted down |
 | Cipher, MAC and KDF state freed without wiping (M2) | `zeroize` features on `aes`, `cbc`, `chacha20`, `twofish`; Argon2 through core-owned, zeroized memory |
@@ -432,13 +429,13 @@ Decided:
   account's menu has "Move", which opens a page of all accounts; a tap
   puts the account in front of the tapped one, "To the end" puts it last,
   so any place takes two taps (moving one step at a time was rejected as
-  too many taps). The order is SailFactor's own, a list of entry UUIDs in
-  the database CustomData item `SailFactor/Order`, not the order of the
+  too many taps). The order is SailToken's own, a list of entry UUIDs in
+  the database CustomData item `SailToken/Order`, not the order of the
   entries in the file: the merge, following KeePassXC, moves an entry
   changed on the computer to the end of its group, which would undo a
   custom order after every sync. KeePassXC keeps the item and shows its
   own order. Accounts the list does not name follow in file order.
-- Passwords in the file (2026-10-08): SailFactor never writes a password,
+- Passwords in the file (2026-10-08): SailToken never writes a password,
   but a file added, merged or synced from KeePassXC can hold entries with
   one. They are kept (criterion 4: a lossless round trip; deleting them
   would also delete them on the computer at the next sync) and never
@@ -451,7 +448,7 @@ Decided:
   warning. The account list marks an entry with a password and no code as
   one to keep in the password manager. The sync entry, which holds the
   Nextcloud app password, is not counted.
-- One file (2026-10-08): SailFactor keeps one authenticator file, as
+- One file (2026-10-08): SailToken keeps one authenticator file, as
   other authenticators keep one vault. Several files, as in SailVault,
   were planned for Phase 4 and built, then dropped before any release: a
   second-factor file per user is the normal case, a file selector and a
@@ -459,8 +456,7 @@ Decided:
   keeping the password database next to the codes, against the
   separation. Adding a file from Documents or Downloads, key files,
   saving a copy and deleting the file stay; the file is always stored
-  under the name `SailFactor`, which the 0.1.0 file already has, so no
-  migration is needed. Switching to another file means saving a copy,
+  under the name `SailToken`. Switching to another file means saving a copy,
   deleting the file and adding the other one.
 - Unlock for daily use (2026-10-08): the full master password (and key
   file) every time, as in SailVault, for Phase 3 and the first release.
@@ -471,13 +467,16 @@ Decided:
   no lower "Daily" level.
 - Steam codes (2026-10-08): in v1, built in Phase 2, so a file with Steam
   entries behaves the same in both apps.
-- Name (2026-10-07): SailFactor, package `harbour-sailfactor`,
-  `OrganizationName=de.tordenskjold`, `ApplicationName=sailfactor`.
-  Known collision: a dormant GitHub hobby project from 2014 with the same
-  name, never published in a store; accepted. A rename happens only if
-  Harbour QA objects, which is before the first release and therefore
-  before any data directory exists on a user's phone (a rename after the
-  release would move `ApplicationName` and need a migration).
+- Name (2026-10-09): SailToken, package `harbour-sailtoken`,
+  `OrganizationName=de.tordenskjold`, `ApplicationName=sailtoken`. The
+  name chosen first, on 2026-10-07, was refused when 0.4.0 was submitted:
+  Harbour reserves that package name for an integer factoring app from
+  about 2014, which the store search, closed without an account, had not
+  shown. The app was renamed before its first store release, everywhere:
+  package, binary, data directory, QML module, core crate, C API prefix
+  (`st_`), the file's CustomData keys and sync entry, texts and images.
+  Nothing migrates; the maintainer's own file is set up again once. A
+  later rename would move `ApplicationName` and need a migration.
 - Code sharing (2026-10-07): the KDBX code is copied from SailVault, not
   pulled in as a crate. First copied on 2026-10-08 from SailVault
   `fee532f`; the file list is in section 5 and in
@@ -485,7 +484,7 @@ Decided:
   copy matches. The fixtures keep SailVault's password, so the
   copy stays byte for byte comparable and the KeePassXC GUI fixtures need
   not be made again. A fix in one app is ported by hand to the other. SailVault's `CLAUDE.md` gets a one-line note that fixes in
-  `core/src/kdbx/` also apply to SailFactor (to be added in SailVault
+  `core/src/kdbx/` also apply to SailToken (to be added in SailVault
   with the maintainer's approval).
 - Storage format (2026-10-07, confirmed after weighing alternatives the
   same day): KDBX4 with KeePassXC's `otp` attribute as the only storage;
@@ -503,7 +502,7 @@ Decided:
   It reuses SailVault's reviewed KDBX code and Argon2id levels measured
   on the device, and the merge for files also edited in KeePassXC.
 - HOTP (2026-10-07): not supported, see section 4.
-- Separation (2026-10-07): SailFactor never opens SailVault's file; a move
+- Separation (2026-10-07): SailToken never opens SailVault's file; a move
   of `otp` attributes from a vault is an import, Phase 7.
 - Sync account (2026-10-07): the Nextcloud account for sync must not
   depend on a code in this file; the setup page says so.

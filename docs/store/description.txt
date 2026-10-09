@@ -1,21 +1,21 @@
-SailFactor keeps the codes for two-factor login (TOTP) on your Sailfish phone, in an encrypted file of their own with its own master password, apart from your password manager. If the password manager's file or its master password leaks, your second factor stays safe. The file is a standard KDBX 4 file: KeePassXC on your computer opens it and shows the same codes.
+SailToken keeps the codes for two-factor login (TOTP) on your Sailfish phone, in an encrypted file of their own with its own master password, apart from your password manager. If the password manager's file or its master password leaks, your second factor stays safe. The file is a standard KDBX 4 file: KeePassXC on your computer opens it and shows the same codes.
 
 Features
 - Add an account by scanning the QR code a service shows, or by typing in its secret. The first code shows before the account is saved, so you can finish the service's setup with it.
-- Codes for SHA-1, SHA-256 and SHA-512, 1 to 10 digits and any period, the same codes KeePassXC shows for the same file. SailFactor reads every way KeePassXC and KeePass store TOTP settings.
+- Codes for SHA-1, SHA-256 and SHA-512, 1 to 10 digits and any period, the same codes KeePassXC shows for the same file. SailToken reads every way KeePassXC and KeePass store TOTP settings.
 - Copy a code with a tap; the clipboard is cleared after 30 seconds.
 - Rename, delete and reorder accounts: move one to any place in the list with two taps. Deleted accounts go to a recycle bin, which you can empty in the settings.
 - Create a new file with Argon2id at three protection levels, or add an existing one from KeePassXC, with or without a key file. Older KDBX 3.1 files are stored as KDBX 4 with Argon2id; the original file stays unchanged.
-- Sync with your own Nextcloud: log in through the browser, and SailFactor keeps the phone and the server in step, merging changes made on both sides. Or merge a copy of the file by hand, and save a copy for your computer.
+- Sync with your own Nextcloud: log in through the browser, and SailToken keeps the phone and the server in step, merging changes made on both sides. Or merge a copy of the file by hand, and save a copy for your computer.
 - Locks after two minutes without use and after 30 seconds in the background.
 
 Security
 - Decryption, key handling and the codes run in a Rust core. The secrets of your accounts never leave it, and they are wiped when the file locks. Nothing decrypted is ever written to disk.
 - The full master password is needed every time. Nothing is stored that unlocks the file without it.
-- The file lives in SailFactor's private storage, out of reach of other apps. Deleting it needs the app unlocked.
+- The file lives in SailToken's private storage, out of reach of other apps. Deleting it needs the app unlocked.
 - Every save goes to a temporary file, is verified by decrypting it again and only then replaces the file. The last three versions are kept as backups.
 - Network access only for the Nextcloud sync you set up: https only, self-signed certificates only after you confirm their fingerprint. The Nextcloud app password is stored inside your encrypted file.
-- Passwords belong in your password manager: when a file brings passwords along, SailFactor says so before it merges them and marks such entries.
+- Passwords belong in your password manager: when a file brings passwords along, SailToken says so before it merges them and marks such entries.
 - Counter-based codes (HOTP) are not supported; such entries are kept unchanged and shown as not supported.
 
 Permissions
@@ -23,6 +23,6 @@ Permissions
 - Documents and Downloads: to add a file and its key file, merge a copy and save a copy.
 - Internet: only for the Nextcloud sync you set up.
 
-SailFactor is free software under the MIT license. The source code, the threat model and the security review are on GitHub.
+SailToken is free software under the MIT license. The source code, the threat model and the security review are on GitHub.
 
-SailFactor is an independent app. It is not affiliated with KeePass, KeePassXC or Nextcloud.
+SailToken is an independent app. It is not affiliated with KeePass, KeePassXC or Nextcloud.
