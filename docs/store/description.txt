@@ -2,6 +2,7 @@ SailToken keeps the codes for two-factor login (TOTP) on your Sailfish phone, in
 
 Features
 - Add an account by scanning the QR code a service shows, or by typing in its secret. The first code shows before the account is saved, so you can finish the service's setup with it.
+- Move your accounts from Android: scan the export codes of Google Authenticator, or import an Aegis backup, encrypted or plain. You choose the accounts before anything is written; accounts SailToken already has are marked.
 - Codes for SHA-1, SHA-256 and SHA-512, 1 to 10 digits and any period, the same codes KeePassXC shows for the same file. SailToken reads every way KeePassXC and KeePass store TOTP settings.
 - Copy a code with a tap; the clipboard is cleared after 30 seconds.
 - Rename, delete and reorder accounts: move one to any place in the list with two taps. Deleted accounts go to a recycle bin, which you can empty in the settings.
@@ -20,7 +21,7 @@ Security
 
 Permissions
 - Camera: only on the scan page, to read QR codes. Frames are read on the phone and never stored.
-- Documents and Downloads: to add a file and its key file, merge a copy and save a copy.
+- Documents and Downloads: to add a file and its key file, merge a copy, save a copy and import a backup of another authenticator app.
 - Internet: only for the Nextcloud sync you set up.
 
 SailToken is free software under the MIT license. The source code, the threat model and the security review are on GitHub.

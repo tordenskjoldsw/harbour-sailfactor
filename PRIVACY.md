@@ -27,9 +27,11 @@ party.
 
 ## Camera
 
-SailToken uses the camera only while the scan page is open, to read the
-QR code a service shows when you turn on two-factor login. The camera
-images are processed on the phone and never stored or sent anywhere.
+SailToken uses the camera only while a scan page is open, to read the
+QR code a service shows when you turn on two-factor login, or the export
+codes another authenticator app shows when you import its accounts. The
+camera images are processed on the phone and never stored or sent
+anywhere.
 
 ## Network access
 
@@ -44,9 +46,11 @@ login page in the Sailfish browser.
 
 ## Permissions
 
-- **Camera:** only on the scan page, to read QR codes.
+- **Camera:** only on the scan pages, to read QR codes.
 - **Documents and Downloads:** to add an existing file and its key file,
-  merge a copy and save a copy, always files that you pick or name.
+  merge a copy, save a copy and read a backup of another authenticator
+  app to import, always files that you pick or name. SailToken never
+  deletes or changes such a backup; delete it yourself after the import.
 - **Internet:** only for the Nextcloud sync you set up.
 
 ## Contact

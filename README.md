@@ -27,6 +27,9 @@ The screenshots show a demo file with made-up accounts.
 
 - Add accounts by scanning the QR code a service shows, or by typing the
   secret; the first code shows before the account is saved
+- Move accounts from Android: scan Google Authenticator's export codes,
+  or import an Aegis backup, encrypted or plain; you choose the accounts
+  before anything is written
 - Codes for SHA-1, SHA-256 and SHA-512, 1 to 10 digits, any period, and
   Steam Guard, the same codes KeePassXC shows for the same file
 - Reads every way KeePassXC and KeePass store TOTP settings in an entry

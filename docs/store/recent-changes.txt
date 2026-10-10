@@ -1,1 +1,2 @@
 First release in the Jolla Store.
+Move your accounts from Android: scan Google Authenticator's export codes or import an Aegis backup (Settings > Import accounts).
