@@ -12,7 +12,8 @@ keeps (section 14). Phase 5: merging a copy and the Nextcloud sync,
 ported from SailVault, with warnings about passwords in the file and
 emptying the recycle bin (section 14), released as 0.3.0. 0.4.0 adds
 moving accounts in the list (section 14). 0.5.0 is the same app under
-the name SailToken (section 14, 2026-10-09). Next: Phase 6.
+the name SailToken (section 14, 2026-10-09). Phase 6: 0.5.0 was
+submitted to the Jolla Store on 2026-10-09 and waits for QA.
 
 SailToken is the "separate authenticator app" that SailVault's plan
 (section 4 there) left for a later, independent project. It shares no
