@@ -1,7 +1,8 @@
-//! Reading Aegis vault files. The vaults here are built field by field
+//! Reading Aegis vault files. Most vaults here are built field by field
 //! after `docs/vault.md` of the Aegis repository, encrypted with the same
-//! crates the reader uses; exports made in the Aegis app follow as
-//! fixtures and check the reading against the real thing.
+//! crates the reader uses; a plain export of the Aegis app itself checks
+//! the reading against the real thing. An encrypted export of the app was
+//! opened on the device (`docs/import-formats.md`).
 
 use aes_gcm::aead::{AeadInPlace, KeyInit};
 use aes_gcm::{Aes256Gcm, Nonce};
@@ -313,4 +314,55 @@ fn refuses_files_above_the_limits() {
 
     let huge = vec![b' '; MAX_AEGIS_LENGTH + 1];
     assert_eq!(read_aegis(&huge, None).unwrap_err(), ImportError::TooLarge);
+}
+
+// A plain export made by Aegis on Android (2026-10-10) from the 12
+// made-up test codes in `fixtures/README.md`; the secrets below are the
+// ones those codes held.
+const AEGIS_APP_PLAIN: &[u8] = include_bytes!("fixtures/aegis-plain.json");
+
+#[test]
+fn reads_a_plain_export_of_the_aegis_app() {
+    let import = read_aegis(AEGIS_APP_PLAIN, None).unwrap();
+
+    assert!(import.skipped.is_empty());
+    let names: Vec<_> = import
+        .accounts
+        .iter()
+        .map(|account| (account.issuer.as_str(), account.account.as_str()))
+        .collect();
+    assert_eq!(
+        names,
+        [
+            ("Testbank", "alice@example.com"),
+            ("Mailbox", "bob@example.org"),
+            ("Forum", "carol"),
+            ("Cloud Store", "dave@example.net"),
+            ("Shop", "erin"),
+            ("Büro & Co", "frank.müller@example.de"),
+            ("Git Host", "grace"),
+            // Aegis itself keeps this label whole, without an issuer.
+            ("", "VPN:heidi:admin"),
+            ("Social", "ivan@example.com"),
+            ("Eight Digits", "judy"),
+            ("SHA256 Test", "mallory"),
+            ("Sixty Seconds", "oscar"),
+        ]
+    );
+    let settings = |secret, algorithm, digits, period| {
+        TotpSettings::new(secret, algorithm, digits, period, Encoder::Decimal).unwrap()
+    };
+    same_codes(
+        &import.accounts[0].settings,
+        settings("HMRQS23NH7WHNDEKWLQEDXGDQCAMP6OA", Algorithm::Sha1, 6, 30),
+    );
+    assert_eq!(import.accounts[9].settings.digits(), 8);
+    same_codes(
+        &import.accounts[10].settings,
+        settings("74HS6ITD6CHIHJSVMDPB3LF6TBMP5Z2K", Algorithm::Sha256, 6, 30),
+    );
+    same_codes(
+        &import.accounts[11].settings,
+        settings("JTL75WZIW2CYFSYD2NWVQIMIXKWVJGBP", Algorithm::Sha1, 6, 60),
+    );
 }

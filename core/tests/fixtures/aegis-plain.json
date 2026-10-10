@@ -1,0 +1,206 @@
+{
+    "version": 1,
+    "header": {
+        "slots": null,
+        "params": null
+    },
+    "db": {
+        "version": 3,
+        "entries": [
+            {
+                "type": "totp",
+                "uuid": "1f210a2e-baee-4aab-a32c-44cfd7498e9c",
+                "name": "alice@example.com",
+                "issuer": "Testbank",
+                "note": "",
+                "favorite": false,
+                "icon": null,
+                "info": {
+                    "secret": "HMRQS23NH7WHNDEKWLQEDXGDQCAMP6OA",
+                    "algo": "SHA1",
+                    "digits": 6,
+                    "period": 30
+                },
+                "groups": []
+            },
+            {
+                "type": "totp",
+                "uuid": "80aa29a1-ec0c-454d-9aa6-88028c0c7252",
+                "name": "bob@example.org",
+                "issuer": "Mailbox",
+                "note": "",
+                "favorite": false,
+                "icon": null,
+                "info": {
+                    "secret": "FZPJJZPXF5ORYCQSGTPE2DINKOSYL73A",
+                    "algo": "SHA1",
+                    "digits": 6,
+                    "period": 30
+                },
+                "groups": []
+            },
+            {
+                "type": "totp",
+                "uuid": "1bad6931-278e-4d40-a6c9-a136d4e588b3",
+                "name": "carol",
+                "issuer": "Forum",
+                "note": "",
+                "favorite": false,
+                "icon": null,
+                "info": {
+                    "secret": "WKNIVE6SNZTIUZUJ6GY4GYTMEWRCAWNR",
+                    "algo": "SHA1",
+                    "digits": 6,
+                    "period": 30
+                },
+                "groups": []
+            },
+            {
+                "type": "totp",
+                "uuid": "29a2d979-d0f8-49d1-80e4-781c0d5b261a",
+                "name": "dave@example.net",
+                "issuer": "Cloud Store",
+                "note": "",
+                "favorite": false,
+                "icon": null,
+                "info": {
+                    "secret": "O4DTD334YXKFF4WVR32I627B33U4LLSL",
+                    "algo": "SHA1",
+                    "digits": 6,
+                    "period": 30
+                },
+                "groups": []
+            },
+            {
+                "type": "totp",
+                "uuid": "d8bcbfe1-e9b5-4dee-bb7b-0b14a554e8e2",
+                "name": "erin",
+                "issuer": "Shop",
+                "note": "",
+                "favorite": false,
+                "icon": null,
+                "info": {
+                    "secret": "D3RBEMCMQHPDCYIT74DRA6WTUWKGGDAH",
+                    "algo": "SHA1",
+                    "digits": 6,
+                    "period": 30
+                },
+                "groups": []
+            },
+            {
+                "type": "totp",
+                "uuid": "267d620e-9671-4aa9-85d6-e02e26163c12",
+                "name": "frank.müller@example.de",
+                "issuer": "Büro & Co",
+                "note": "",
+                "favorite": false,
+                "icon": null,
+                "info": {
+                    "secret": "FGHHWRP4HT5YLA77W3YNXLWQT66VBGQ6",
+                    "algo": "SHA1",
+                    "digits": 6,
+                    "period": 30
+                },
+                "groups": []
+            },
+            {
+                "type": "totp",
+                "uuid": "08fe46e8-1610-4be3-b7ed-f1fb5af81b5a",
+                "name": "grace",
+                "issuer": "Git Host",
+                "note": "",
+                "favorite": false,
+                "icon": null,
+                "info": {
+                    "secret": "2LSBTHGXYA6AJY43ATLT6JJFTHVQNGKS",
+                    "algo": "SHA1",
+                    "digits": 6,
+                    "period": 30
+                },
+                "groups": []
+            },
+            {
+                "type": "totp",
+                "uuid": "b5532d28-f8fd-4ab8-aec0-cdfe21bd9dec",
+                "name": "VPN:heidi:admin",
+                "issuer": "",
+                "note": "",
+                "favorite": false,
+                "icon": null,
+                "info": {
+                    "secret": "VL2EAXYAO4OPLWCGQGGEHDA3TU74NJOW",
+                    "algo": "SHA1",
+                    "digits": 6,
+                    "period": 30
+                },
+                "groups": []
+            },
+            {
+                "type": "totp",
+                "uuid": "8d9a3443-e91e-49e5-b758-ba7d33099dc2",
+                "name": "ivan@example.com",
+                "issuer": "Social",
+                "note": "",
+                "favorite": false,
+                "icon": null,
+                "info": {
+                    "secret": "5EI4R6X6CABKTQGICNZC4RZ6SFQSOEGL",
+                    "algo": "SHA1",
+                    "digits": 6,
+                    "period": 30
+                },
+                "groups": []
+            },
+            {
+                "type": "totp",
+                "uuid": "b925d3c7-a17b-44ce-b776-2bd945b1867e",
+                "name": "judy",
+                "issuer": "Eight Digits",
+                "note": "",
+                "favorite": false,
+                "icon": null,
+                "info": {
+                    "secret": "HZCUO2UUQELA2BBPYRNEOUTV33Y3DDI6",
+                    "algo": "SHA1",
+                    "digits": 8,
+                    "period": 30
+                },
+                "groups": []
+            },
+            {
+                "type": "totp",
+                "uuid": "36b7020e-1865-4105-8768-e28cc2579446",
+                "name": "mallory",
+                "issuer": "SHA256 Test",
+                "note": "",
+                "favorite": false,
+                "icon": null,
+                "info": {
+                    "secret": "74HS6ITD6CHIHJSVMDPB3LF6TBMP5Z2K",
+                    "algo": "SHA256",
+                    "digits": 6,
+                    "period": 30
+                },
+                "groups": []
+            },
+            {
+                "type": "totp",
+                "uuid": "f0fb79ba-bb2e-4368-af1c-f29ba5de1007",
+                "name": "oscar",
+                "issuer": "Sixty Seconds",
+                "note": "",
+                "favorite": false,
+                "icon": null,
+                "info": {
+                    "secret": "JTL75WZIW2CYFSYD2NWVQIMIXKWVJGBP",
+                    "algo": "SHA1",
+                    "digits": 6,
+                    "period": 60
+                },
+                "groups": []
+            }
+        ],
+        "groups": [],
+        "icons_optimized": true
+    }
+}

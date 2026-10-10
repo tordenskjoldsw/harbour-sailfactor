@@ -40,3 +40,17 @@ Argon2: 2 iterations, 8 MiB memory, 2 threads. AES-KDF: 10000 rounds.
 | `kdbx4-aes-argon2d.kdbx` | KDBX 4.0 | Argon2d | AES 256-bit |
 | `kdbx4-chacha20-argon2id.kdbx` | KDBX 4.0 | Argon2id | ChaCha20 256-bit |
 | `kdbx4-twofish-aeskdf.kdbx` | KDBX 4.0 | AES-KDF | Twofish 256-bit |
+
+# Import exports
+
+Exports of other authenticator apps with 12 made-up accounts, scanned
+from QR codes generated for the import test (2026-10-10; issuers
+Testbank, Mailbox, Forum, Cloud Store, Shop, Büro & Co, Git Host, VPN,
+Social, Eight Digits, SHA256 Test, Sixty Seconds). No real secrets.
+
+| File | Made by | Content |
+|------|---------|---------|
+| `aegis-plain.json` | Aegis on Android, Export, Aegis format without encryption | vault version 1, content version 3, 12 TOTP entries, no icons or notes |
+
+Exports cannot be scripted; a missing or changed one is made again in
+the app by hand.
