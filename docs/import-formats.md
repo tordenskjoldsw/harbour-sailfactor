@@ -118,15 +118,25 @@ A UTF-8 JSON object: `version` (1), `header` and `db`.
   `note`, `favorite`, `icon` fields, `groups` (group UUIDs) and `info`
   with `secret` (Base32), `algo`, `digits`, and `period` (TOTP, Steam) or
   `counter` (HOTP).
-- Taken over: issuer, name, secret, algorithm, digits, period, and the
-  note into the entry's notes. Not taken over: icons, favorite flag and
-  groups; the account list has no groups.
-- Content versions other than 3 are refused with a message to export
-  again from a current Aegis, since only version 3 is documented.
-- Limits (proposed): file at most 16 MiB (icons are embedded as Base64
-  JPEG), at most 1000 entries, scrypt `n` at most 2^18 with `r` at most
-  8 and `p` at most 4 (at most 256 MiB, the same ceiling as the Argon2
-  levels), strings at most 4 KiB.
+- Taken over: issuer, name, secret, algorithm, digits and period; Aegis,
+  unlike Google, keeps the time step. Steam entries become Steam
+  accounts. Not taken over: the note, icons, favorite flag and groups;
+  an account carries no note in SailToken and the list has no groups.
+- Skipped by position: HOTP, mOTP, Yandex and other types, MD5, and
+  entries with a missing type or an unreadable secret.
+- A vault or content version other than 1 and 3 is refused as a format
+  SailToken does not know; only these are documented. A content that
+  fails its tag after a slot opened is damaged, not a wrong password.
+- Limits: file at most 16 MiB (`MAX_AEGIS_LENGTH`; icons are embedded as
+  Base64 JPEG), at most 1000 entries (`MAX_ENTRIES`), scrypt `n` a power
+  of two up to 2^18 with `r` at most 8 and `p` at most 4 (at most
+  256 MiB, the ceiling of the Argon2 levels), names at most 1024 bytes.
+- Memory: the parsed JSON, which holds every secret of a plain vault, is
+  wiped string by string when the reader is done, and the decrypted
+  content sits in zeroized memory. serde_json's own scratch buffers and
+  scrypt's working memory are freed without wiping; neither holds a
+  seed in its final form, but serde_json may have copied escaped
+  strings. Recorded here as for rqrr in `docs/spike-results.md`.
 
 ## Dependencies this needs
 

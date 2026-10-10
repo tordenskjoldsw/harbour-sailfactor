@@ -43,6 +43,7 @@ pub const ST_ALREADY_SCANNED: i32 = 18;
 pub const ST_NOT_EXPORT: i32 = 19;
 pub const ST_OTHER_EXPORT: i32 = 20;
 pub const ST_EXPORT_CODE: i32 = 21;
+pub const ST_PASSWORD_REQUIRED: i32 = 22;
 
 pub const ST_TEXT_ISSUER: u32 = 0;
 pub const ST_TEXT_NAME: u32 = 1;
@@ -275,6 +276,8 @@ fn import_status(error: ImportError) -> i32 {
         ImportError::Malformed => ST_UNSUPPORTED_FORMAT,
         ImportError::TooLarge => ST_LIMIT_EXCEEDED,
         ImportError::OtherBatch => ST_OTHER_EXPORT,
+        ImportError::PasswordRequired => ST_PASSWORD_REQUIRED,
+        ImportError::WrongPassword => ST_INVALID_CREDENTIALS,
     }
 }
 

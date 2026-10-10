@@ -38,6 +38,7 @@ extern "C" {
 #define ST_NOT_EXPORT 19
 #define ST_OTHER_EXPORT 20
 #define ST_EXPORT_CODE 21
+#define ST_PASSWORD_REQUIRED 22
 
 #define ST_TEXT_ISSUER 0u
 #define ST_TEXT_NAME 1u

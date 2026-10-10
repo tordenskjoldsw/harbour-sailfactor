@@ -3,14 +3,20 @@
 //! hard limits and returns candidates; nothing reaches the file until the
 //! user has chosen which to add.
 
+mod aegis;
 mod migration;
 mod protobuf;
 
+pub use aegis::{aegis_is_encrypted, read_aegis, MAX_AEGIS_LENGTH};
 pub use migration::{
     read_migration_uri, MigrationBatch, MigrationCode, MAX_BATCH_SIZE, MAX_MIGRATION_PAYLOAD,
 };
 
 use crate::otp::{OtpError, ParsedUri};
+
+/// The most entries one export file may hold, taken over and skipped
+/// together.
+pub const MAX_ENTRIES: usize = 1000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ImportError {
@@ -20,6 +26,9 @@ pub enum ImportError {
     TooLarge,
     /// A code of another export, scanned while one is being collected.
     OtherBatch,
+    /// An encrypted export, opened without a password.
+    PasswordRequired,
+    WrongPassword,
 }
 
 /// Why an entry of an export is not taken over.
