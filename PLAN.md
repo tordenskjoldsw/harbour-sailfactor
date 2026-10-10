@@ -355,7 +355,7 @@ Store texts, privacy policy, screenshots (1080 px wide; the Jolla Phone
 renders 1032 px, upscale with Lanczos), both architectures built with
 `-c no-fix-version` or from a clean tag; submit; fix QA findings before
 releasing new features. Phase 7 work may start on a branch during the
-review (section 14).
+review; the import went into the submission as 0.6.0 (section 14).
 
 ### Phase 7 - After the first release
 
@@ -447,11 +447,13 @@ Decided:
   KDBX file, 2FAS, Proton Authenticator and andOTP follow as demand
   shows.
 - Phase 7 during the store review (2026-10-10): the Jolla Store review
-  of 0.5.0 takes weeks, so Phase 7 work starts on a separate branch while
-  it runs; `main` stays at the submitted state. QA findings are fixed on
-  `main` and released on their own as 0.5.x, then merged into the
-  branch. No Phase 7 feature is released before the store has accepted
-  the app.
+  of 0.5.0 takes weeks, so Phase 7 work started on a separate branch
+  while it ran. The same day the maintainer decided to release the
+  import (Google Authenticator export codes, Aegis vaults), tested on
+  the device, as 0.6.0 and to replace the submitted 0.5.0 with it: the
+  import carries the move from Android, which the first store release
+  should offer. Later Phase 7 work again waits on a branch for the
+  review; QA findings are fixed first.
 - Account order (2026-10-09): accounts can be moved in the list. The
   account's menu has "Move", which opens a page of all accounts; a tap
   puts the account in front of the tapped one, "To the end" puts it last,
