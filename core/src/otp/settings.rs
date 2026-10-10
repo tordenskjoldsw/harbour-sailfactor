@@ -394,7 +394,7 @@ fn text(bytes: &[u8]) -> Result<String, OtpError> {
 
 /// Decodes `%XX` escapes; a `%` without two hex digits stays as it is, as
 /// in Qt's tolerant parsing. `+` is not a space in a URI query.
-fn percent_decode(text: &str) -> Zeroizing<Vec<u8>> {
+pub(crate) fn percent_decode(text: &str) -> Zeroizing<Vec<u8>> {
     let bytes = text.as_bytes();
     let mut decoded = Zeroizing::new(Vec::with_capacity(bytes.len()));
     let mut index = 0;

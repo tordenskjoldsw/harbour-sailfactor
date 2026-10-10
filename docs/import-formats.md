@@ -1,7 +1,8 @@
 # Import formats
 
 The formats of the first import release (`PLAN.md` section 14, decided
-2026-10-10), as documented by their authors or by permissively licensed
+2026-10-10; a plain text file of `otpauth://` URIs was dropped the same
+day, since it carries every secret unencrypted between devices), as documented by their authors or by permissively licensed
 descriptions. SailToken follows these descriptions and copies no code:
 Aegis is GPL-3.0, and Google publishes no specification for its export.
 
@@ -25,27 +26,18 @@ The user sees all entries before anything is written, chooses which to
 add, and the file is saved once, with the usual verified write and
 backups.
 
-## 1. Text file of `otpauth://` URIs
-
-Source: the Key Uri Format that SailToken already reads for scanned QR
-codes (`core/src/otp/settings.rs`, `parse_uri`). Many apps export their
-accounts as such a list; Ente Auth and Stratum are named in the forum
-(unverified: the exact export layout of each app, to be checked with
-the fixtures).
-
-- One URI per line; empty lines and surrounding whitespace are ignored.
-- Each line goes through `parse_uri`, so the rules for a scanned code
-  apply unchanged. A line that fails is counted with its line number,
-  never shown with its content.
-- Limits (proposed): file at most 1 MiB, at most 1000 lines with a URI,
-  a line at most 4 KiB.
-
-## 2. Google Authenticator export QR codes
+## 1. Google Authenticator export QR codes (the main way)
 
 Source: the field numbers in `migration.proto` of
 [dim13/otpauth](https://github.com/dim13/otpauth/blob/master/migration/migration.proto)
 (ISC license), a description derived from the app's output. There is no
 official specification, so the format may change without notice.
+
+The old phone shows the codes and SailToken scans them from its screen,
+so no file with the secrets leaves the old phone. Google Authenticator
+blocks screenshots of its export (reported in migration guides, e.g.
+2FAuth's), and splits an export of more than 10 accounts into several
+codes of 10 each.
 
 URI: `otpauth-migration://offline?data=<payload>`, where the payload is
 standard Base64 (with `+`, `/` and padding), percent-encoded in the URI.
@@ -71,22 +63,33 @@ OtpParameters
 ```
 
 - The format carries no period; every TOTP entry uses 30 seconds.
-  Unspecified algorithm and digits mean SHA1 and six.
-- `name` may hold `issuer:account`; when `issuer` is empty, the part
-  before the colon becomes the issuer, as in `parse_uri`.
+  Unspecified type, algorithm and digits mean TOTP, SHA1 and six, as
+  the app assumes. Padding of the Base64 is optional.
+- `name` often repeats the issuer as `Issuer:account`, the label of the
+  URI the account came from. The prefix is dropped when it equals the
+  issuer, and becomes the issuer when the issuer field is empty; any
+  other name is kept whole.
+- A message that breaks the wire format spoils the whole code; a value
+  SailToken cannot use (HOTP, MD5, an unknown type or length, an empty
+  or oversized secret, a name that is not UTF-8) skips only its account.
 - An export with many accounts is split over several QR codes with the
-  same `batch_id`, `batch_index` from 0 and `batch_size`. The scan page
-  collects codes of one batch, shows "2 of 3 scanned", ignores repeats
-  and a code from another batch, and offers the import when all are in.
-- A small hand-written protobuf reader in the core reads only these
-  fields: varints, length-delimited fields and skipping of unknown
-  fields, each length checked against the remaining bytes, nesting at
-  most two levels.
-- Limits (proposed): payload at most 64 KiB decoded, at most 100 entries
-  per code, batch size at most 50, secret at most 128 bytes, strings at
-  most 1 KiB.
+  same `batch_id`, `batch_index` from 0 and `batch_size`. The core
+  collects the codes of one batch in any order (`MigrationBatch`),
+  ignores repeats and refuses a code from another batch; the scan page
+  shows "2 of 3 scanned" and offers the import when all are in. Skipped
+  entries are numbered across the codes in batch order.
+- A small hand-written protobuf reader (`core/src/import/protobuf.rs`)
+  reads varints and length-delimited fields and skips fixed-width and
+  unknown fields, each length checked against the remaining bytes;
+  group wire types and varints beyond 64 bits are refused.
+- Limits: payload at most 4096 bytes decoded (`MAX_MIGRATION_PAYLOAD`;
+  a QR code holds at most 2953 bytes), at most 100 accounts per code,
+  batch size at most 50 (`MAX_BATCH_SIZE`), secret at most 512 bytes
+  (`MAX_SECRET_LENGTH`, as for every account), names at most 1024
+  bytes. The scanner's payload limit (`qr::MAX_PAYLOAD_LENGTH`, now
+  2048) has to grow to hold a full code.
 
-## 3. Aegis vault files
+## 2. Aegis vault files
 
 Source:
 [docs/vault.md](https://github.com/beemdevelopment/Aegis/blob/master/docs/vault.md)

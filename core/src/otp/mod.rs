@@ -7,6 +7,7 @@ mod base32;
 mod settings;
 mod totp;
 
+pub(crate) use settings::percent_decode;
 pub use settings::{
     parse_uri, settings_from_attributes, write_uri, ParsedUri, ATTRIBUTE_KEEPASS2_ALGORITHM,
     ATTRIBUTE_KEEPASS2_LENGTH, ATTRIBUTE_KEEPASS2_PERIOD, ATTRIBUTE_KEEPASS2_SECRET, ATTRIBUTE_OTP,
@@ -73,11 +74,34 @@ impl TotpSettings {
         period: u32,
         encoder: Encoder,
     ) -> Result<Self, OtpError> {
-        if !(1..=MAX_DIGITS).contains(&digits) || !(1..=MAX_PERIOD).contains(&period) {
-            return Err(OtpError::InvalidSettings);
+        check_ranges(digits, period)?;
+        Self::from_secret(
+            base32::decode(secret_base32)?,
+            algorithm,
+            digits,
+            period,
+            encoder,
+        )
+    }
+
+    /// Settings from a decoded secret, as an export carries it, with the
+    /// same checks as `new`.
+    pub(crate) fn from_secret(
+        secret: Zeroizing<Vec<u8>>,
+        algorithm: Algorithm,
+        digits: u8,
+        period: u32,
+        encoder: Encoder,
+    ) -> Result<Self, OtpError> {
+        check_ranges(digits, period)?;
+        if secret.is_empty() {
+            return Err(OtpError::InvalidSecret);
+        }
+        if secret.len() > MAX_SECRET_LENGTH {
+            return Err(OtpError::TooLong);
         }
         Ok(Self {
-            secret: base32::decode(secret_base32)?,
+            secret,
             algorithm,
             digits,
             period,
@@ -104,6 +128,13 @@ impl TotpSettings {
     pub fn encoder(&self) -> Encoder {
         self.encoder
     }
+}
+
+fn check_ranges(digits: u8, period: u32) -> Result<(), OtpError> {
+    if !(1..=MAX_DIGITS).contains(&digits) || !(1..=MAX_PERIOD).contains(&period) {
+        return Err(OtpError::InvalidSettings);
+    }
+    Ok(())
 }
 
 impl std::fmt::Debug for TotpSettings {

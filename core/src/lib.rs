@@ -7,6 +7,7 @@
 pub mod accounts;
 mod argon2_memory;
 pub mod ffi;
+pub mod import;
 pub mod kdbx;
 pub mod otp;
 pub mod qr;
