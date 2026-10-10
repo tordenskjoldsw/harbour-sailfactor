@@ -11,7 +11,7 @@ use super::{
     ST_TEXT_NAME,
 };
 use crate::accounts;
-use crate::import::{read_migration_uri, Import, MigrationBatch, SkipReason};
+use crate::import::{read_aegis, read_migration_uri, Import, MigrationBatch, SkipReason};
 
 pub(super) enum ImportState {
     Empty,
@@ -132,6 +132,55 @@ pub unsafe extern "C" fn st_import_from_frame(
     *scanned_out = scanned as u32;
     *size_out = size as u32;
     status
+}
+
+/// Reads an export file, an Aegis vault, into an empty import, which is
+/// complete afterwards. `password` is null for a plain vault.
+/// `ST_PASSWORD_REQUIRED`: the vault is encrypted, ask for its password;
+/// `ST_INVALID_CREDENTIALS`: the password opens no slot; `ST_NOT_EXPORT`:
+/// no Aegis vault; `ST_UNSUPPORTED_FORMAT`: a vault SailToken cannot read;
+/// `ST_LIMIT_EXCEEDED`: a file or key derivation beyond the limits. Runs
+/// scrypt for an encrypted vault, so call it off the UI thread.
+///
+/// # Safety
+///
+/// `import` must be a live handle not in use by another thread; `data`
+/// valid for reads of `length` bytes; `password` null or valid for reads
+/// of `password_length` bytes.
+#[no_mangle]
+pub unsafe extern "C" fn st_import_from_file(
+    import: *mut StImport,
+    data: *const u8,
+    length: usize,
+    password: *const u8,
+    password_length: usize,
+) -> i32 {
+    // SAFETY: guaranteed by the caller.
+    let (Some(import), Some(data)) = (unsafe { (import.as_mut(), bytes(data, length)) }) else {
+        return ST_INVALID_ARGUMENT;
+    };
+    if !matches!(import.state, ImportState::Empty) {
+        return ST_INVALID_ARGUMENT;
+    }
+    let password = if password.is_null() {
+        None
+    } else {
+        // SAFETY: guaranteed by the caller.
+        match unsafe { bytes(password, password_length) } {
+            Some(password) => Some(password),
+            None => return ST_INVALID_ARGUMENT,
+        }
+    };
+    match read_aegis(data, password) {
+        Ok(read) => {
+            import.state = ImportState::Done {
+                import: read,
+                size: 1,
+            };
+            ST_OK
+        }
+        Err(error) => import_status(error),
+    }
 }
 
 /// The accounts of a complete import and the entries it skips by reason;

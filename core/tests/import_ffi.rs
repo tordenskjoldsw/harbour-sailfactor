@@ -9,14 +9,14 @@ use sailtoken_core::ffi::accounts::{
 };
 use sailtoken_core::ffi::database::{st_database_free, st_database_open};
 use sailtoken_core::ffi::import::{
-    st_import_add, st_import_counts, st_import_duplicates, st_import_free, st_import_from_frame,
-    st_import_new, st_import_text,
+    st_import_add, st_import_counts, st_import_duplicates, st_import_free, st_import_from_file,
+    st_import_from_frame, st_import_new, st_import_text,
 };
 use sailtoken_core::ffi::pending::{st_pending_free, st_pending_from_frame};
 use sailtoken_core::ffi::{
     st_string_free, StDatabase, StImport, StImportCounts, StString, ST_ALREADY_SCANNED,
-    ST_EXPORT_CODE, ST_INVALID_ARGUMENT, ST_NOT_EXPORT, ST_NOT_FOUND, ST_OK, ST_TEXT_ISSUER,
-    ST_TEXT_NAME,
+    ST_EXPORT_CODE, ST_INVALID_ARGUMENT, ST_NOT_EXPORT, ST_NOT_FOUND, ST_OK, ST_PASSWORD_REQUIRED,
+    ST_TEXT_ISSUER, ST_TEXT_NAME,
 };
 
 const FIXTURE: &[u8] = include_bytes!("fixtures/totp-entries.kdbx");
@@ -237,4 +237,59 @@ fn reports_frames_without_a_code_and_wrong_arguments() {
         st_import_free(import);
         st_import_free(ptr::null_mut());
     }
+}
+
+const PLAIN_AEGIS: &str = r#"{
+  "version": 1,
+  "header": { "slots": null, "params": null },
+  "db": { "version": 3, "groups": [], "entries": [
+    { "type": "totp", "uuid": "01234567-89ab-4def-8123-456789abcdef",
+      "name": "dave", "issuer": "Vault", "note": "", "favorite": false,
+      "icon": null, "groups": [],
+      "info": { "secret": "MFRGGZDFMZTWQ2LK", "algo": "SHA1", "digits": 6, "period": 30 } }
+  ] }
+}"#;
+
+fn from_file(import: *mut StImport, data: &[u8], password: Option<&[u8]>) -> i32 {
+    let (pointer, length) = password.map_or((ptr::null(), 0), |p| (p.as_ptr(), p.len()));
+    // SAFETY: import is live; data and password are live slices or null.
+    unsafe { st_import_from_file(import, data.as_ptr(), data.len(), pointer, length) }
+}
+
+#[test]
+fn reads_an_aegis_file_into_an_empty_import() {
+    let import = st_import_new();
+
+    assert_eq!(from_file(import, b"{}", None), ST_NOT_EXPORT);
+    assert_eq!(from_file(import, PLAIN_AEGIS.as_bytes(), None), ST_OK);
+    let mut counts = StImportCounts::default();
+    // SAFETY: import is live; counts is a local.
+    assert_eq!(unsafe { st_import_counts(import, &mut counts) }, ST_OK);
+    assert_eq!(counts.accounts, 1);
+    assert_eq!(text(import, 0, ST_TEXT_NAME), "dave");
+    // A complete import takes no second file.
+    assert_eq!(
+        from_file(import, PLAIN_AEGIS.as_bytes(), None),
+        ST_INVALID_ARGUMENT
+    );
+
+    // SAFETY: import is live and not used afterwards.
+    unsafe { st_import_free(import) };
+}
+
+#[test]
+fn an_encrypted_aegis_file_asks_for_its_password() {
+    let encrypted = PLAIN_AEGIS.replace(
+        r#""slots": null, "params": null"#,
+        r#""slots": [], "params": {}"#,
+    );
+    let import = st_import_new();
+
+    assert_eq!(
+        from_file(import, encrypted.as_bytes(), None),
+        ST_PASSWORD_REQUIRED
+    );
+
+    // SAFETY: import is live and not used afterwards.
+    unsafe { st_import_free(import) };
 }

@@ -239,6 +239,17 @@ StImport *st_import_new(void);
 int32_t st_import_from_frame(StImport *import, const uint8_t *pixels, size_t length,
                              uint32_t width, uint32_t height, uint32_t row_stride,
                              uint32_t pixel_step, uint32_t *scanned_out, uint32_t *size_out);
+/*
+ * Reads an export file, an Aegis vault, into an empty import, which is
+ * complete afterwards; password is null for a plain vault.
+ * ST_PASSWORD_REQUIRED: the vault is encrypted; ST_INVALID_CREDENTIALS: the
+ * password opens no slot; ST_NOT_EXPORT: no Aegis vault;
+ * ST_UNSUPPORTED_FORMAT: a vault SailToken cannot read; ST_LIMIT_EXCEEDED:
+ * a file or key derivation beyond the limits. Runs scrypt for an encrypted
+ * vault: call it off the UI thread.
+ */
+int32_t st_import_from_file(StImport *import, const uint8_t *data, size_t length,
+                            const uint8_t *password, size_t password_length);
 int32_t st_import_counts(const StImport *import, StImportCounts *out);
 int32_t st_import_text(const StImport *import, size_t index, uint32_t column, StString *out);
 int32_t st_import_duplicates(const StDatabase *database, const StImport *import,
