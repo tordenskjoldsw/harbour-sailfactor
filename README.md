@@ -78,6 +78,21 @@ you plan a pull request, open an issue first so we can agree on the
 approach. Never attach a real secret, a real QR code or a real database,
 not even an encrypted one.
 
+## AI disclosure
+
+- **AI-assisted development.** I write SailToken's code together with
+  Claude Code, an AI coding agent. I write much of it myself; Claude
+  Code contributes code, suggested fixes, refactoring, tests and
+  documentation, always under my direction.
+- **Reviewed and owned by me.** I review every change before it is
+  committed. I decide what ships and I am responsible for it.
+- **Verified, not trusted.** Generated code gets no special trust. The
+  TOTP and HOTP code must pass every RFC 6238 and RFC 4226 test vector
+  and match KeePassXC for the same `otpauth://` URI. KeePass files must
+  survive a round trip through KeePassXC unchanged. The app uses
+  established crypto crates and no hand-written cryptography. Device
+  results are stated only when they were measured on a Jolla phone.
+
 ## License
 
 [MIT](LICENSE). The licenses of the bundled Rust crates are listed on the
