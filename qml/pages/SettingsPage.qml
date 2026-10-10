@@ -4,9 +4,9 @@ import Sailfish.Pickers 1.0
 import harbour.sailtoken 1.0
 import "../components"
 
-// Settings and occasional actions for the open file: sync, merging a copy,
-// saving a copy, deleting it, and help. The account list keeps its pulley
-// menu for the frequent actions.
+// Settings and occasional actions for the open file: sync, importing from
+// another app, merging a copy, saving a copy, deleting it, and help. The
+// account list keeps its pulley menu for the frequent actions.
 Page {
     id: page
 
@@ -148,6 +148,21 @@ Page {
 
             SectionHeader {
                 text: qsTr("File")
+            }
+
+            BackgroundItem {
+                id: importItem
+
+                height: Theme.itemSizeMedium
+                enabled: !authenticator.busy
+                onClicked: pageStack.push(Qt.resolvedUrl("ImportPage.qml"))
+
+                TwoLineLabel {
+                    anchors.fill: parent
+                    highlighted: importItem.highlighted
+                    title: qsTr("Import accounts")
+                    description: qsTr("Scan the export codes of Google Authenticator")
+                }
             }
 
             BackgroundItem {

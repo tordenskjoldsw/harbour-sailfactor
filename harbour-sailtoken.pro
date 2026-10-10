@@ -80,6 +80,7 @@ DISTFILES += \
     qml/components/Paragraph.qml \
     qml/components/PasswordInput.qml \
     qml/components/ProtectionComboBox.qml \
+    qml/components/QrCamera.qml \
     qml/components/SyncText.qml \
     qml/components/TwoLineLabel.qml \
     qml/cover/CoverPage.qml \
@@ -90,6 +91,8 @@ DISTFILES += \
     qml/pages/CertificateDialog.qml \
     qml/pages/DeleteFileDialog.qml \
     qml/pages/HelpPage.qml \
+    qml/pages/ImportDialog.qml \
+    qml/pages/ImportPage.qml \
     qml/pages/MergePage.qml \
     qml/pages/MovePage.qml \
     qml/pages/NewFileDialog.qml \
