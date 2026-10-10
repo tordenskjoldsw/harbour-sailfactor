@@ -12,6 +12,7 @@ crate-type = ["staticlib", "rlib"]
 
 [dependencies]
 aes = { version = "0.8", features = ["zeroize"] }
+aes-gcm = { version = "0.10", default-features = false, features = ["aes", "alloc", "zeroize"] }
 argon2 = { version = "0.5", default-features = false, features = ["zeroize"] }
 base64 = "0.22"
 cbc = { version = "0.1", features = ["zeroize"] }
@@ -22,6 +23,8 @@ hmac = "0.12"
 quick-xml = "0.39"
 rqrr = { version = "0.10", default-features = false }
 salsa20 = { version = "0.10", features = ["zeroize"] }
+scrypt = { version = "0.11", default-features = false }
+serde_json = { version = "1", default-features = false, features = ["std"] }
 sha1 = { version = "0.10", default-features = false }
 sha2 = "0.10"
 twofish = { version = "0.7", features = ["zeroize"] }
