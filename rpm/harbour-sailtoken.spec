@@ -1,7 +1,7 @@
 Name:       harbour-sailtoken
 
 Summary:    Authenticator for TOTP codes in a KeePass-compatible file
-Version:    0.5.0
+Version:    0.6.0
 Release:    1
 License:    MIT
 URL:        https://github.com/tordenskjoldsw/harbour-sailtoken

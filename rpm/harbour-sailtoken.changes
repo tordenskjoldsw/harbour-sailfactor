@@ -1,3 +1,10 @@
+* Sat Oct 10 2026 Tobias Kaminski <instance_maintainer@protonmail.com> - 0.6.0-1
+- Move your accounts from Android: scan the export codes of Google
+  Authenticator, or import an Aegis backup, encrypted or plain, from
+  Documents or Downloads; you choose the accounts before anything is
+  written, and accounts already in SailToken are marked
+- A help page on moving from another app
+
 * Fri Oct 09 2026 Tobias Kaminski <instance_maintainer@protonmail.com> - 0.5.0-1
 - New name SailToken, as the earlier name is reserved in the Jolla Store
 - The app keeps its file in a new folder of its own: add the file again
