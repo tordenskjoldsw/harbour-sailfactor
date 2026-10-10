@@ -1,7 +1,7 @@
 # SailToken - Project Plan
 
-Status: 2026-10-09 - Phases 0 to 5 done and released as 0.5.0, tested
-on the Jolla Phone.
+Status: 2026-10-10 - Phases 0 to 5 done and released as 0.5.0, the
+import of Phase 7 as 0.6.0, tested on the Jolla Phone.
 0.1.0 was the MVP (create, unlock, scan or type in accounts, codes that
 match KeePassXC and a real service's login, auto-lock, backups; cold
 start 506 ms median, `docs/spike-results.md`). 0.2.0 brought the
@@ -13,7 +13,10 @@ ported from SailVault, with warnings about passwords in the file and
 emptying the recycle bin (section 14), released as 0.3.0. 0.4.0 adds
 moving accounts in the list (section 14). 0.5.0 is the same app under
 the name SailToken (section 14, 2026-10-09). Phase 6: 0.5.0 was
-submitted to the Jolla Store on 2026-10-09 and waits for QA.
+submitted to the Jolla Store on 2026-10-09. 0.6.0 adds the import from
+Google Authenticator's export codes and Aegis vaults
+(`docs/import-formats.md`) and replaces 0.5.0 in the submission
+(section 14, 2026-10-10).
 
 SailToken is the "separate authenticator app" that SailVault's plan
 (section 4 there) left for a later, independent project. It shares no

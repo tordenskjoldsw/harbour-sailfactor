@@ -11,7 +11,7 @@ What the separation gives: if the password manager's file or its master
 password leaks, the second factor is still safe. What it does not give:
 protection against a compromised phone, which holds both apps.
 
-**Status:** version 0.5.0, tested on the Jolla Phone with Sailfish OS
+**Status:** version 0.6.0, tested on the Jolla Phone with Sailfish OS
 5.2. Not in the Jolla Store yet; build the RPM yourself as
 described below. The full plan is in [PLAN.md](PLAN.md).
 
