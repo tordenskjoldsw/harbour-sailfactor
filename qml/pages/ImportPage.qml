@@ -26,7 +26,7 @@ Page {
         importMode: true
         onImportComplete: {
             if (authenticator.takeImport(scanner))
-                pageStack.replace(Qt.resolvedUrl("ImportDialog.qml"))
+                pageStack.replace(Qt.resolvedUrl("ImportDialog.qml"), { "fromGoogle": true })
         }
     }
 

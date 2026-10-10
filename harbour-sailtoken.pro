@@ -92,6 +92,7 @@ DISTFILES += \
     qml/pages/DeleteFileDialog.qml \
     qml/pages/HelpPage.qml \
     qml/pages/ImportDialog.qml \
+    qml/pages/ImportFilePage.qml \
     qml/pages/ImportPage.qml \
     qml/pages/MergePage.qml \
     qml/pages/MovePage.qml \

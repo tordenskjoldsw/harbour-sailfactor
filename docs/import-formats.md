@@ -90,6 +90,14 @@ OtpParameters
   (`qr::MAX_PAYLOAD_LENGTH`), above the 2953 bytes of a QR code in byte
   mode, so a full export code fits.
 
+Device test (2026-10-10, Jolla Phone): 12 made-up accounts scanned into
+Google Authenticator, exported as two codes and imported in SailToken,
+all of them; an account scanned with `period=60` changes every 30
+seconds after the import, as the format carries no time step. Aegis can
+show its accounts as codes in this format too ("transfer"); its export
+of the same 12 accounts left out the one with eight digits and the one
+with SHA256, so the vault file below is the complete way for Aegis.
+
 ## 2. Aegis vault files
 
 Source:
@@ -131,6 +139,9 @@ A UTF-8 JSON object: `version` (1), `header` and `db`.
   Base64 JPEG), at most 1000 entries (`MAX_ENTRIES`), scrypt `n` a power
   of two up to 2^18 with `r` at most 8 and `p` at most 4 (at most
   256 MiB, the ceiling of the Argon2 levels), names at most 1024 bytes.
+- Device test (2026-10-10): an encrypted vault exported by Aegis on
+  Android (scrypt n = 2^15, r = 8, p = 1) with the 12 made-up accounts
+  opened with its password and brought in all of them.
 - Memory: the parsed JSON, which holds every secret of a plain vault, is
   wiped string by string when the reader is done, and the decrypted
   content sits in zeroized memory. serde_json's own scratch buffers and

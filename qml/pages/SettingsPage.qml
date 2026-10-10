@@ -13,6 +13,7 @@ Page {
     // The file picker closes itself after a selection; the merge page opens
     // once this page is back.
     property string pendingMergePath
+    property string pendingImportPath
     // Set when the delete dialog was accepted; the file is deleted once the
     // dialog has closed, because deleting locks and returns to the unlock
     // page, which must not happen while the dialog's transition runs.
@@ -78,6 +79,10 @@ Page {
             var path = pendingMergePath
             pendingMergePath = ""
             pageStack.push(Qt.resolvedUrl("MergePage.qml"), { "path": path })
+        } else if (pendingImportPath.length > 0) {
+            var importPath = pendingImportPath
+            pendingImportPath = ""
+            pageStack.push(Qt.resolvedUrl("ImportFilePage.qml"), { "path": importPath })
         }
     }
 
@@ -95,6 +100,15 @@ Page {
         FilePickerPage {
             nameFilters: ["*.kdbx"]
             onSelectedContentPropertiesChanged: page.pendingMergePath = selectedContentProperties.filePath
+        }
+    }
+
+    Component {
+        id: importPicker
+
+        FilePickerPage {
+            nameFilters: ["*.json"]
+            onSelectedContentPropertiesChanged: page.pendingImportPath = selectedContentProperties.filePath
         }
     }
 
@@ -147,11 +161,11 @@ Page {
             }
 
             SectionHeader {
-                text: qsTr("File")
+                text: qsTr("Import accounts")
             }
 
             BackgroundItem {
-                id: importItem
+                id: importCodesItem
 
                 height: Theme.itemSizeMedium
                 enabled: !authenticator.busy
@@ -159,10 +173,29 @@ Page {
 
                 TwoLineLabel {
                     anchors.fill: parent
-                    highlighted: importItem.highlighted
-                    title: qsTr("Import accounts")
-                    description: qsTr("Scan the export codes of Google Authenticator")
+                    highlighted: importCodesItem.highlighted
+                    title: qsTr("From Google Authenticator")
+                    description: qsTr("Scan its export codes")
                 }
+            }
+
+            BackgroundItem {
+                id: importFileItem
+
+                height: Theme.itemSizeMedium
+                enabled: !authenticator.busy && !authenticator.importingFile
+                onClicked: pageStack.push(importPicker)
+
+                TwoLineLabel {
+                    anchors.fill: parent
+                    highlighted: importFileItem.highlighted
+                    title: qsTr("From an Aegis backup")
+                    description: qsTr("Every account with its settings, from Documents or Downloads")
+                }
+            }
+
+            SectionHeader {
+                text: qsTr("File")
             }
 
             BackgroundItem {

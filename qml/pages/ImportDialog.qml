@@ -8,6 +8,8 @@ import "../components"
 Dialog {
     id: dialog
 
+    // Google's export carries no time step, which the dialog explains.
+    property bool fromGoogle
     readonly property var summary: authenticator.importSummary()
     readonly property int skipped: (summary.hotp || 0) + (summary.unsupported || 0)
                                    + (summary.invalid || 0)
@@ -74,6 +76,7 @@ Dialog {
             }
 
             Paragraph {
+                visible: dialog.fromGoogle
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.secondaryHighlightColor
                 text: qsTr("Google Authenticator exports no time step, so every account gets 30 seconds, as in Google Authenticator. If a service rejects a code, its account may use another time step.")
