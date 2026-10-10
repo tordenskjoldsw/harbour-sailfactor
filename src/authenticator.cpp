@@ -123,6 +123,7 @@ Authenticator::~Authenticator()
     QCoreApplication::sendPostedEvents(this, QEvent::MetaCall);
     m_clipboard.clear();
     m_pending.reset();
+    m_import.reset();
     m_mergeSource.reset();
     m_database.reset();
 }
@@ -390,6 +391,7 @@ void Authenticator::lock()
     m_autoLock.stop();
     m_clipboard.clear();
     clearPending();
+    clearImport();
     ++m_attempt;
     if (m_state == Unlocking) {
         setState(Locked);
@@ -439,6 +441,7 @@ void Authenticator::deferLock(PendingLock kind)
     m_autoLock.stop();
     m_clipboard.clear();
     clearPending();
+    clearImport();
     const bool first = m_pendingLock == PendingLock::None;
     // A lock the user asked for is reported as such, even after a deadline
     // passed during the same save.
@@ -590,6 +593,93 @@ bool Authenticator::addPending(const QString &issuer, const QString &name)
     if (added)
         clearPending();
     return added;
+}
+
+bool Authenticator::hasImport() const
+{
+    return static_cast<bool>(m_import);
+}
+
+bool Authenticator::takeImport(FrameScanner *scanner)
+{
+    if (!scanner || !readableDatabase())
+        return false;
+    CoreImport import = scanner->takeImport();
+    if (!import)
+        return false;
+    m_import = std::move(import);
+    emit importChanged();
+    return true;
+}
+
+QVariantMap Authenticator::importSummary() const
+{
+    QVariantMap summary;
+    StImportCounts counts{0, 0, 0, 0};
+    if (m_import && st_import_counts(m_import.get(), &counts) == ST_OK) {
+        summary.insert(QStringLiteral("accounts"), int(counts.accounts));
+        summary.insert(QStringLiteral("hotp"), int(counts.hotp));
+        summary.insert(QStringLiteral("unsupported"), int(counts.unsupported));
+        summary.insert(QStringLiteral("invalid"), int(counts.invalid));
+    }
+    return summary;
+}
+
+QVariantList Authenticator::importAccounts()
+{
+    QVariantList accounts;
+    StImportCounts counts{0, 0, 0, 0};
+    const StDatabase *handle = database();
+    if (!m_import || !handle || st_import_counts(m_import.get(), &counts) != ST_OK)
+        return accounts;
+    QByteArray duplicates(int(counts.accounts), '\0');
+    if (st_import_duplicates(handle, m_import.get(),
+                             reinterpret_cast<uint8_t *>(duplicates.data()),
+                             static_cast<size_t>(duplicates.size()))
+        != ST_OK)
+        return accounts;
+    for (size_t index = 0; index < counts.accounts; ++index) {
+        StString issuer = emptyCoreString();
+        StString name = emptyCoreString();
+        st_import_text(m_import.get(), index, ST_TEXT_ISSUER, &issuer);
+        st_import_text(m_import.get(), index, ST_TEXT_NAME, &name);
+        QVariantMap account;
+        account.insert(QStringLiteral("issuer"), takeCoreString(issuer));
+        account.insert(QStringLiteral("name"), takeCoreString(name));
+        account.insert(QStringLiteral("duplicate"), duplicates.at(int(index)) != 0);
+        accounts.append(account);
+    }
+    return accounts;
+}
+
+int Authenticator::addImported(const QVariantList &selected)
+{
+    if (!m_import)
+        return -1;
+    QByteArray chosen(selected.size(), '\0');
+    for (int index = 0; index < selected.size(); ++index)
+        chosen[index] = selected.at(index).toBool() ? 1 : 0;
+    const StImport *import = m_import.get();
+    size_t added = 0;
+    const bool done = change([&](StDatabase *database, int64_t now, bool &changed) {
+        const int status = st_import_add(database, import, bytePointer(chosen),
+                                         static_cast<size_t>(chosen.size()), now, &added);
+        // Accounts added before an error are saved like the rest.
+        changed = added > 0;
+        return added > 0 ? ST_OK : status;
+    });
+    if (!done)
+        return -1;
+    clearImport();
+    return int(added);
+}
+
+void Authenticator::clearImport()
+{
+    if (!m_import)
+        return;
+    m_import.reset();
+    emit importChanged();
 }
 
 bool Authenticator::change(const Edit &edit)

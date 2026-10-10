@@ -106,8 +106,10 @@ bool copyCentralLuma(const QVideoFrame &frame, QByteArray &luma, int &side)
 class DecodeTask : public QRunnable
 {
 public:
-    DecodeTask(FrameScanner *scanner, QByteArray luma, int width, int height)
-        : m_scanner(scanner), m_luma(std::move(luma)), m_width(width), m_height(height)
+    // With an import, the frame goes to it instead of becoming an account.
+    DecodeTask(FrameScanner *scanner, QByteArray luma, int width, int height, StImport *import)
+        : m_scanner(scanner), m_luma(std::move(luma)), m_width(width), m_height(height),
+          m_import(import)
     {
     }
 
@@ -115,6 +117,10 @@ public:
 
     void run() override
     {
+        if (m_import) {
+            runImport();
+            return;
+        }
         StPending *found = nullptr;
         const int status = st_pending_from_frame(
             bytePointer(m_luma), static_cast<size_t>(m_luma.size()), uint32_t(m_width),
@@ -131,10 +137,26 @@ public:
     }
 
 private:
+    void runImport()
+    {
+        uint32_t scanned = 0;
+        uint32_t size = 0;
+        const int status = st_import_from_frame(
+            m_import, bytePointer(m_luma), static_cast<size_t>(m_luma.size()), uint32_t(m_width),
+            uint32_t(m_height), uint32_t(m_width), 1, &scanned, &size);
+        secureWipe(m_luma);
+        // The progress travels by value: the import is not read on the main
+        // thread while scanning goes on.
+        QMetaObject::invokeMethod(m_scanner, "onImportDecoded", Qt::QueuedConnection,
+                                  Q_ARG(int, status), Q_ARG(int, int(scanned)),
+                                  Q_ARG(int, int(size)));
+    }
+
     FrameScanner *m_scanner;
     QByteArray m_luma;
     int m_width;
     int m_height;
+    StImport *m_import;
 };
 
 class FrameScannerRunnable : public QVideoFilterRunnable
@@ -197,6 +219,33 @@ bool FrameScanner::unsupportedFrames() const
     return m_unsupportedFrames;
 }
 
+bool FrameScanner::importMode() const
+{
+    return m_importMode;
+}
+
+void FrameScanner::setImportMode(bool importMode)
+{
+    // Set once, before the camera delivers frames.
+    if (m_importMode == importMode || m_decoding.load())
+        return;
+    m_importMode = importMode;
+    if (importMode && !m_import)
+        m_import.reset(st_import_new());
+    m_activeImport.store(importMode ? m_import.get() : nullptr);
+    emit importModeChanged();
+}
+
+int FrameScanner::scanned() const
+{
+    return m_scanned;
+}
+
+int FrameScanner::exportSize() const
+{
+    return m_exportSize;
+}
+
 bool FrameScanner::accepting() const
 {
     return !m_paused.load() && !m_decoding.load();
@@ -210,7 +259,7 @@ void FrameScanner::decode(QByteArray luma, int width, int height)
         secureWipe(luma);
         return;
     }
-    m_pool.start(new DecodeTask(this, std::move(luma), width, height));
+    m_pool.start(new DecodeTask(this, std::move(luma), width, height, m_activeImport.load()));
 }
 
 CorePending FrameScanner::takePending()
@@ -221,15 +270,28 @@ CorePending FrameScanner::takePending()
     return pending;
 }
 
+CoreImport FrameScanner::takeImport()
+{
+    if (!m_importComplete)
+        return CoreImport();
+    m_activeImport.store(nullptr);
+    return std::move(m_import);
+}
+
 void FrameScanner::rearm()
 {
     m_pending.reset();
-    if (m_rejection != Authenticator::PendingReady) {
-        m_rejection = Authenticator::PendingReady;
-        emit rejectionChanged();
-    }
+    setRejection(Authenticator::PendingReady);
     emit foundChanged();
     m_paused.store(false);
+}
+
+void FrameScanner::setRejection(int rejection)
+{
+    if (m_rejection == rejection)
+        return;
+    m_rejection = rejection;
+    emit rejectionChanged();
 }
 
 void FrameScanner::onDecoded(int status, qulonglong pending)
@@ -244,19 +306,66 @@ void FrameScanner::onDecoded(int status, qulonglong pending)
         onUnsupportedFrame();
         return;
     }
+    if (status == ST_EXPORT_CODE) {
+        m_paused.store(true);
+        emit exportCodeFound();
+        return;
+    }
     const int rejection = Authenticator::pendingStatus(status);
     if (rejection != Authenticator::PendingReady) {
         // Scanning goes on: the next code in view may be the right one.
-        if (m_rejection != rejection) {
-            m_rejection = rejection;
-            emit rejectionChanged();
-        }
+        setRejection(rejection);
         return;
     }
     m_paused.store(true);
     m_pending = std::move(account);
     emit foundChanged();
     emit codeFound();
+}
+
+void FrameScanner::onImportDecoded(int status, int scanned, int size)
+{
+    if (scanned != m_scanned || size != m_exportSize) {
+        m_scanned = scanned;
+        m_exportSize = size;
+        emit progressChanged();
+    }
+    const bool complete = size > 0 && scanned == size;
+    // Paused before the next decode may start, so the import is left alone
+    // until Authenticator::takeImport.
+    if (complete)
+        m_paused.store(true);
+    m_decoding.store(false);
+    if (complete) {
+        if (!m_importComplete) {
+            m_importComplete = true;
+            setRejection(Authenticator::PendingReady);
+            emit importComplete();
+        }
+        return;
+    }
+    if (m_paused.load())
+        return;
+    switch (status) {
+    case ST_OK:
+    case ST_ALREADY_SCANNED:
+        setRejection(Authenticator::PendingReady);
+        break;
+    case ST_NOT_FOUND:
+    case ST_CORRUPTED:
+        break;
+    case ST_INVALID_ARGUMENT:
+        onUnsupportedFrame();
+        break;
+    case ST_NOT_EXPORT:
+        setRejection(Authenticator::NotExport);
+        break;
+    case ST_OTHER_EXPORT:
+        setRejection(Authenticator::OtherExport);
+        break;
+    default:
+        setRejection(Authenticator::UnreadableExport);
+    }
 }
 
 void FrameScanner::onUnsupportedFrame()

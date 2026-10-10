@@ -76,6 +76,7 @@ using CoreDatabase = std::unique_ptr<StDatabase, CoreFree<StDatabase, st_databas
 using CorePending = std::unique_ptr<StPending, CoreFree<StPending, st_pending_free>>;
 using CoreAccountList =
     std::unique_ptr<StAccountList, CoreFree<StAccountList, st_account_list_free>>;
+using CoreImport = std::unique_ptr<StImport, CoreFree<StImport, st_import_free>>;
 
 // A file from the core, released when it goes out of scope.
 class CoreBytes

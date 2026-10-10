@@ -5,6 +5,7 @@
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#include <QVariantList>
 #include <QVariantMap>
 
 #include <atomic>
@@ -50,6 +51,7 @@ class Authenticator : public QObject
     Q_PROPERTY(QString pendingIssuer READ pendingIssuer NOTIFY pendingChanged)
     Q_PROPERTY(QString pendingName READ pendingName NOTIFY pendingChanged)
     Q_PROPERTY(int clipboardClearSeconds READ clipboardClearSeconds CONSTANT)
+    Q_PROPERTY(bool hasImport READ hasImport NOTIFY importChanged)
 
 public:
     enum State {
@@ -91,7 +93,12 @@ public:
         Hotp,
         UnsupportedType,
         InvalidSecret,
-        InvalidSettings
+        InvalidSettings,
+        // While importing: a QR code that is no export code, a code of
+        // another export, and an export code SailToken cannot read.
+        NotExport,
+        OtherExport,
+        UnreadableExport
     };
     Q_ENUM(PendingStatus)
 
@@ -126,6 +133,7 @@ public:
     QString pendingIssuer() const;
     QString pendingName() const;
     int clipboardClearSeconds() const;
+    bool hasImport() const;
 
     // Null when locked, when a lock deadline has passed or while a requested
     // lock waits for a save.
@@ -177,6 +185,19 @@ public:
     Q_INVOKABLE void clearPending();
     // Adds the pending account with the issuer and name the user confirmed.
     Q_INVOKABLE bool addPending(const QString &issuer, const QString &name);
+
+    // Takes the complete import the scanner collected.
+    Q_INVOKABLE bool takeImport(FrameScanner *scanner);
+    // The import's "accounts" and the entries it skips: "hotp",
+    // "unsupported" and "invalid".
+    Q_INVOKABLE QVariantMap importSummary() const;
+    // One map per account: "issuer", "name" and "duplicate", true when the
+    // file already has its secret.
+    Q_INVOKABLE QVariantList importAccounts();
+    // Adds the accounts whose entry in selected is true and saves once;
+    // returns how many were added, or -1 when nothing could be.
+    Q_INVOKABLE int addImported(const QVariantList &selected);
+    Q_INVOKABLE void clearImport();
 
     // Merges another copy of the file, such as the one from the computer,
     // opened with the credentials this file was unlocked with, and saves.
@@ -234,6 +255,7 @@ signals:
     void accountCountChanged();
     void recycleBinItemsChanged();
     void pendingChanged();
+    void importChanged();
     void lockedAutomatically();
     // The accounts changed; lists reload.
     void contentChanged();
@@ -289,6 +311,7 @@ private:
 
     CoreDatabase m_database;
     CorePending m_pending;
+    CoreImport m_import;
     int m_attempt = 0;
     std::shared_ptr<std::atomic_bool> m_unlockCancelled;
     State m_state = Locked;
