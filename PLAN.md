@@ -360,10 +360,12 @@ review (section 14).
 ### Phase 7 - After the first release
 
 - Import, first after the release, since it carries the move from
-  Android: Aegis vault files (encrypted and plain, read only, never
-  written) and `otpauth-migration://` QR codes (Google Authenticator
-  export, protobuf); then entries with `otp` attributes from another KDBX
-  file (move them out of a password manager); andOTP JSON if demand shows
+  Android (scope in section 14): a text file of `otpauth://` URIs,
+  `otpauth-migration://` QR codes (Google Authenticator export,
+  protobuf) and Aegis vault files (encrypted and plain, read only, never
+  written); then entries with `otp` attributes from another KDBX file
+  (move them out of a password manager), 2FAS, Proton Authenticator and
+  andOTP as demand shows
 - Show an account as a QR code for moving it to another device
 - Warning with a time estimate for slow KDF parameters
 - Quick unlock as decided in section 14, if not already in Phase 3
@@ -427,6 +429,15 @@ Open:
 
 Decided:
 
+- Import scope (2026-10-10): the first import release reads a text file
+  of `otpauth://` URIs (the plain export of Ente Auth, Stratum and many
+  other apps), Google Authenticator's `otpauth-migration://` QR codes,
+  also several in a row, and Aegis vault files, plain and encrypted.
+  These cover most moves from Android; the forum shows users stuck with
+  about 100 codes and no bulk import. Every format is read only and
+  tested with exports made in the real app, with made-up accounts.
+  Entries with `otp` attributes from another KDBX file, 2FAS, Proton
+  Authenticator and andOTP follow as demand shows.
 - Phase 7 during the store review (2026-10-10): the Jolla Store review
   of 0.5.0 takes weeks, so Phase 7 work starts on a separate branch while
   it runs; `main` stays at the submitted state. QA findings are fixed on
