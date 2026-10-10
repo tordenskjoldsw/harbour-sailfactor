@@ -95,6 +95,7 @@ DISTFILES += \
     qml/pages/ImportFilePage.qml \
     qml/pages/ImportPage.qml \
     qml/pages/MergePage.qml \
+    qml/pages/MoveHelpPage.qml \
     qml/pages/MovePage.qml \
     qml/pages/NewFileDialog.qml \
     qml/pages/RenameDialog.qml \

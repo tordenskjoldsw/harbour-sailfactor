@@ -270,6 +270,7 @@ Page {
             Repeater {
                 model: [
                     { "text": qsTr("My code is rejected"), "page": "HelpPage.qml" },
+                    { "text": qsTr("Moving from another app"), "page": "MoveHelpPage.qml" },
                     { "text": qsTr("About SailToken"), "page": "AboutPage.qml" }
                 ]
 
