@@ -202,6 +202,44 @@ void SaveTask::run()
                               Q_ARG(QByteArray, digest), Q_ARG(bool, replacedChangedFile));
 }
 
+ImportFileTask::ImportFileTask(Authenticator *authenticator, int attempt, const QString &path,
+                               QByteArray password, bool withPassword)
+    : m_authenticator(authenticator)
+    , m_attempt(attempt)
+    , m_path(path)
+    , m_password(std::move(password))
+    , m_withPassword(withPassword)
+{
+}
+
+ImportFileTask::~ImportFileTask()
+{
+    secureWipe(m_password);
+}
+
+void ImportFileTask::run()
+{
+    QByteArray data;
+    int status = readBoundedFile(m_path, MaxImportFileBytes, data);
+    CoreImport import(st_import_new());
+    if (status == ST_OK)
+        status = st_import_from_file(import.get(), bytePointer(data),
+                                     static_cast<size_t>(data.size()),
+                                     m_withPassword ? bytePointer(m_password) : nullptr,
+                                     static_cast<size_t>(m_password.size()));
+    // A plain vault holds every secret in the clear.
+    secureWipe(data);
+    secureWipe(m_password);
+    if (status != ST_OK)
+        import.reset();
+    // The authenticator outlives the task and frees an import no longer
+    // wanted in its slot.
+    if (QMetaObject::invokeMethod(m_authenticator, "onImportFileRead", Qt::QueuedConnection,
+                                  Q_ARG(int, m_attempt), Q_ARG(int, status),
+                                  Q_ARG(qulonglong, reinterpret_cast<qulonglong>(import.get()))))
+        import.release();
+}
+
 MergeTask::MergeTask(Authenticator *authenticator, int attempt, const StDatabase *database,
                      const QString &path)
     : m_authenticator(authenticator)

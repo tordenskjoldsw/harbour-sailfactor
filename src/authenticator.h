@@ -52,6 +52,7 @@ class Authenticator : public QObject
     Q_PROPERTY(QString pendingName READ pendingName NOTIFY pendingChanged)
     Q_PROPERTY(int clipboardClearSeconds READ clipboardClearSeconds CONSTANT)
     Q_PROPERTY(bool hasImport READ hasImport NOTIFY importChanged)
+    Q_PROPERTY(bool importingFile READ importingFile NOTIFY importingFileChanged)
 
 public:
     enum State {
@@ -102,6 +103,18 @@ public:
     };
     Q_ENUM(PendingStatus)
 
+    // What reading an export file found.
+    enum ImportFileResult {
+        ImportFileReady,
+        ImportFileNeedsPassword,
+        ImportFileWrongPassword,
+        ImportFileNotExport,
+        ImportFileUnsupported,
+        ImportFileTooLarge,
+        ImportFileUnreadable
+    };
+    Q_ENUM(ImportFileResult)
+
     explicit Authenticator(QObject *parent = nullptr);
     ~Authenticator() override;
 
@@ -134,6 +147,7 @@ public:
     QString pendingName() const;
     int clipboardClearSeconds() const;
     bool hasImport() const;
+    bool importingFile() const;
 
     // Null when locked, when a lock deadline has passed or while a requested
     // lock waits for a save.
@@ -186,6 +200,9 @@ public:
     // Adds the pending account with the issuer and name the user confirmed.
     Q_INVOKABLE bool addPending(const QString &issuer, const QString &name);
 
+    // Reads an Aegis vault on a pool thread into the import; an empty
+    // password reads it as plain. Reports importFileFinished.
+    Q_INVOKABLE void importFile(const QString &path, const QString &password);
     // Takes the complete import the scanner collected.
     Q_INVOKABLE bool takeImport(FrameScanner *scanner);
     // The import's "accounts" and the entries it skips: "hotp",
@@ -256,6 +273,8 @@ signals:
     void recycleBinItemsChanged();
     void pendingChanged();
     void importChanged();
+    void importingFileChanged();
+    void importFileFinished(int result);
     void lockedAutomatically();
     // The accounts changed; lists reload.
     void contentChanged();
@@ -269,6 +288,7 @@ private slots:
     void onSaveFinished(int attempt, int status, const QByteArray &digest,
                         bool replacedChangedFile);
     void onMergeOpened(int attempt, int status, qulonglong handle);
+    void onImportFileRead(int attempt, int status, qulonglong handle);
 
 private:
     // One edit of the file; sets changed when it changed anything.
@@ -312,6 +332,7 @@ private:
     CoreDatabase m_database;
     CorePending m_pending;
     CoreImport m_import;
+    bool m_importingFile = false;
     int m_attempt = 0;
     std::shared_ptr<std::atomic_bool> m_unlockCancelled;
     State m_state = Locked;

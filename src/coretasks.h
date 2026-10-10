@@ -109,6 +109,26 @@ private:
     QByteArray m_data;
 };
 
+// Reads an export file of another app, an Aegis vault, into a new import;
+// an encrypted vault runs scrypt with the password. Without a password,
+// an encrypted vault reports ST_PASSWORD_REQUIRED at once.
+class ImportFileTask : public QRunnable
+{
+public:
+    ImportFileTask(Authenticator *authenticator, int attempt, const QString &path,
+                   QByteArray password, bool withPassword);
+    ~ImportFileTask() override;
+
+    void run() override;
+
+private:
+    Authenticator *m_authenticator;
+    int m_attempt;
+    QString m_path;
+    QByteArray m_password;
+    bool m_withPassword;
+};
+
 // Serializes the file, which runs the KDF, and replaces it with backups.
 // The authenticator keeps the handle alive and read-only until the result
 // arrives.

@@ -600,6 +600,61 @@ bool Authenticator::hasImport() const
     return static_cast<bool>(m_import);
 }
 
+bool Authenticator::importingFile() const
+{
+    return m_importingFile;
+}
+
+void Authenticator::importFile(const QString &path, const QString &password)
+{
+    if (m_importingFile || !readableDatabase())
+        return;
+    clearImport();
+    m_importingFile = true;
+    emit importingFileChanged();
+    QThreadPool::globalInstance()->start(
+        new ImportFileTask(this, m_attempt, path, password.toUtf8(), !password.isEmpty()));
+}
+
+void Authenticator::onImportFileRead(int attempt, int status, qulonglong handle)
+{
+    CoreImport import(reinterpret_cast<StImport *>(handle));
+    m_importingFile = false;
+    emit importingFileChanged();
+    // A lock in between discards what the file held.
+    if (attempt != m_attempt || m_state != Unlocked)
+        return;
+    ImportFileResult result;
+    switch (status) {
+    case ST_OK:
+        result = ImportFileReady;
+        break;
+    case ST_PASSWORD_REQUIRED:
+        result = ImportFileNeedsPassword;
+        break;
+    case ST_INVALID_CREDENTIALS:
+        result = ImportFileWrongPassword;
+        break;
+    case ST_NOT_EXPORT:
+        result = ImportFileNotExport;
+        break;
+    case ST_UNSUPPORTED_FORMAT:
+        result = ImportFileUnsupported;
+        break;
+    case ST_LIMIT_EXCEEDED:
+    case StatusTooLarge:
+        result = ImportFileTooLarge;
+        break;
+    default:
+        result = ImportFileUnreadable;
+    }
+    if (import) {
+        m_import = std::move(import);
+        emit importChanged();
+    }
+    emit importFileFinished(result);
+}
+
 bool Authenticator::takeImport(FrameScanner *scanner)
 {
     if (!scanner || !readableDatabase())

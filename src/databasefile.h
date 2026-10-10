@@ -16,6 +16,8 @@ enum DatabaseFileStatus {
 
 const qint64 MaxDatabaseBytes = 256 * 1024 * 1024;
 const qint64 MaxKeyFileBytes = 1024 * 1024;
+// The core's limit for an export file of another app (MAX_AEGIS_LENGTH).
+const qint64 MaxImportFileBytes = 16 * 1024 * 1024;
 
 // Creates the directory with its parents and limits it to the owner.
 bool makePrivateDirectory(const QString &path);
