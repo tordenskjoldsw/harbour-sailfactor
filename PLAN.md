@@ -426,6 +426,11 @@ Open:
   a time limit or quitting the app wipes the key. Decided after the first
   weeks of daily use; the measurement that matters is how often the
   system quits the app between uses. Never anything on disk.
+- **Editing an account's settings** (raised 2026-10-10, deferred by the
+  maintainer): accounts can only be renamed. Google Authenticator's
+  export carries no time step, so an account imported from it always
+  gets 30 seconds; changing the time step, digits or algorithm
+  afterwards would fix such an account, and one typed in wrongly.
 
 Decided:
 
