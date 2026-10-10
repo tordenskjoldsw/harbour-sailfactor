@@ -7,18 +7,20 @@
 
 pub mod accounts;
 pub mod database;
+pub mod import;
 pub mod pending;
 pub mod sync;
 
 use std::ffi::c_char;
 use std::{ptr, slice};
 
-use zeroize::Zeroize;
+use zeroize::{Zeroize, Zeroizing};
 
 use crate::accounts::{Account, AccountError, UUID_LENGTH};
+use crate::import::ImportError;
 use crate::kdbx::{Database, KdbxError};
 use crate::otp::{OtpError, TotpSettings};
-use crate::qr::QrError;
+use crate::qr::{self, LumaFrame, QrError};
 
 pub const ST_OK: i32 = 0;
 pub const ST_INVALID_ARGUMENT: i32 = 1;
@@ -37,6 +39,10 @@ pub const ST_UNSUPPORTED_TYPE: i32 = 14;
 pub const ST_INVALID_SECRET: i32 = 15;
 pub const ST_INVALID_SETTINGS: i32 = 16;
 pub const ST_NO_CODE: i32 = 17;
+pub const ST_ALREADY_SCANNED: i32 = 18;
+pub const ST_NOT_EXPORT: i32 = 19;
+pub const ST_OTHER_EXPORT: i32 = 20;
+pub const ST_EXPORT_CODE: i32 = 21;
 
 pub const ST_TEXT_ISSUER: u32 = 0;
 pub const ST_TEXT_NAME: u32 = 1;
@@ -84,6 +90,12 @@ pub struct StAccountList {
     accounts: Vec<Account>,
 }
 
+/// The export codes of another app as they are scanned, then the accounts
+/// they hold; see `import.rs`.
+pub struct StImport {
+    state: import::ImportState,
+}
+
 // The bridge opens, saves and scans on worker threads and uses the results
 // on the main thread, so the handles must stay Send and Sync.
 const _: fn() = || {
@@ -91,6 +103,7 @@ const _: fn() = || {
     assert_send_sync::<StDatabase>();
     assert_send_sync::<StPending>();
     assert_send_sync::<StAccountList>();
+    assert_send_sync::<StImport>();
 };
 
 /// Text owned by the core; release it with `st_string_free`.
@@ -114,6 +127,16 @@ impl StString {
         let data = Box::into_raw(Box::<[u8]>::from(text.as_bytes())).cast::<u8>();
         Self { data, length }
     }
+}
+
+/// What an import holds: accounts to offer and entries skipped, by reason.
+#[repr(C)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct StImportCounts {
+    pub accounts: usize,
+    pub hotp: usize,
+    pub unsupported: usize,
+    pub invalid: usize,
 }
 
 /// What `st_database_merge` changed.
@@ -241,6 +264,37 @@ fn qr_status(error: QrError) -> i32 {
         QrError::Unreadable => ST_CORRUPTED,
         QrError::TooLong => ST_LIMIT_EXCEEDED,
     }
+}
+
+fn import_status(error: ImportError) -> i32 {
+    match error {
+        ImportError::NotAnExport => ST_NOT_EXPORT,
+        // A camera frame that cannot be decoded is ST_CORRUPTED; an export
+        // code that can be decoded but not read is a format SailToken does
+        // not know, such as a changed export of the other app.
+        ImportError::Malformed => ST_UNSUPPORTED_FORMAT,
+        ImportError::TooLarge => ST_LIMIT_EXCEEDED,
+        ImportError::OtherBatch => ST_OTHER_EXPORT,
+    }
+}
+
+/// The payload of the first QR code in a camera frame, UTF-8 by
+/// `qr::decode`'s contract.
+fn decode_frame(
+    pixels: &[u8],
+    width: u32,
+    height: u32,
+    row_stride: u32,
+    pixel_step: u32,
+) -> Result<Zeroizing<Vec<u8>>, QrError> {
+    LumaFrame::new(
+        pixels,
+        width as usize,
+        height as usize,
+        row_stride as usize,
+        pixel_step as usize,
+    )
+    .and_then(|frame| qr::decode(&frame))
 }
 
 /// Seconds since the Unix epoch; codes are not computed before it.

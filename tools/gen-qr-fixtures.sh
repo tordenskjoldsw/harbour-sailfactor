@@ -21,11 +21,21 @@ repeat() {
 }
 
 totp='otpauth://totp/Example:alice@example.org?secret=JBSWY3DPEHPK3PXP&issuer=Example'
-prefix='otpauth://totp/Example?secret='
 
 write_fixture totp "$totp"
-write_fixture max-length "$prefix$(repeat A $((2048 - ${#prefix})))"
-write_fixture too-long "$prefix$(repeat A $((2049 - ${#prefix})))"
+# Only characters of QR's alphanumeric mode, which holds up to 4296 of
+# them, so a code can go past the payload limit of 4096 bytes; byte mode
+# ends at 2953.
+long='OTPAUTH://TOTP/EXAMPLE:'
+write_fixture max-length "$long$(repeat A $((4096 - ${#long})))"
+write_fixture too-long "$long$(repeat A $((4097 - ${#long})))"
 printf '\xff\xfe\xfd' | write_fixture invalid-utf8 -8
+
+# A Google Authenticator export of two codes (batch 42) with made-up
+# accounts: code 1 holds alice@example.org at Example (SHA1, six digits,
+# secret JBSWY3DPEHPK3PXP); code 2 holds bob at Other (SHA256, eight
+# digits, secret "made-up-import-seed!") and the counter-based carol.
+write_fixture export-1-of-2 'otpauth-migration://offline?data=Ci4KCkhlbGxvId6tvu8SEWFsaWNlQGV4YW1wbGUub3JnGgdFeGFtcGxlIAEoATACEAEYAiAAKCo%3D'
+write_fixture export-2-of-2 'otpauth-migration://offline?data=CikKFG1hZGUtdXAtaW1wb3J0LXNlZWQhEglPdGhlcjpib2IaACACKAIwAgoiCgpIZWxsbyHerb7vEgVjYXJvbBoHQ291bnRlciABKAEwARABGAIgASgq'
 
 qrencode --version

@@ -13,7 +13,9 @@ use zeroize::Zeroizing;
 
 pub const MAX_FRAME_DIMENSION: usize = 4096;
 pub const MAX_PIXEL_STEP: usize = 4;
-pub const MAX_PAYLOAD_LENGTH: usize = 2048;
+// Above the 2953 bytes a QR code holds at most, so a full export code of
+// another authenticator app fits.
+pub const MAX_PAYLOAD_LENGTH: usize = 4096;
 // Frames with a longer side are subsampled before detection: a QR code
 // held up to the camera spans far more pixels than its modules need, and
 // detection time grows with the pixel count.

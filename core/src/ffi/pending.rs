@@ -5,12 +5,12 @@
 use zeroize::Zeroizing;
 
 use super::{
-    bytes, otp_status, qr_status, unix_seconds, utf8, StPending, StString, ST_ALGORITHM_SHA1,
-    ST_ALGORITHM_SHA256, ST_ALGORITHM_SHA512, ST_ENCODER_DECIMAL, ST_ENCODER_STEAM,
-    ST_INVALID_ARGUMENT, ST_OK, ST_TEXT_ISSUER, ST_TEXT_NAME,
+    bytes, decode_frame, otp_status, qr_status, unix_seconds, utf8, StPending, StString,
+    ST_ALGORITHM_SHA1, ST_ALGORITHM_SHA256, ST_ALGORITHM_SHA512, ST_ENCODER_DECIMAL,
+    ST_ENCODER_STEAM, ST_EXPORT_CODE, ST_INVALID_ARGUMENT, ST_OK, ST_TEXT_ISSUER, ST_TEXT_NAME,
 };
+use crate::import::{read_migration_uri, ImportError};
 use crate::otp::{self, Algorithm, Encoder, OtpError, ParsedUri, TotpSettings};
-use crate::qr::{self, LumaFrame};
 
 /// Decodes the first QR code in a camera frame and reads it as an
 /// `otpauth://totp/` URI; the payload never leaves the core. The frame has
@@ -18,7 +18,8 @@ use crate::qr::{self, LumaFrame};
 /// `row_stride` bytes per row, at most 4096 pixels per side.
 /// `ST_NOT_FOUND`: no code in the frame; `ST_CORRUPTED`: a code that could
 /// not be read; `ST_NOT_OTPAUTH`, `ST_HOTP`, `ST_UNSUPPORTED_TYPE`: a code
-/// that is not a TOTP account.
+/// that is not a TOTP account; `ST_EXPORT_CODE`: an export code of another
+/// app, for the import (`st_import_from_frame`).
 ///
 /// # Safety
 ///
@@ -43,19 +44,14 @@ pub unsafe extern "C" fn st_pending_from_frame(
     if pixels.is_empty() {
         return ST_INVALID_ARGUMENT;
     }
-    let payload = match LumaFrame::new(
-        pixels,
-        width as usize,
-        height as usize,
-        row_stride as usize,
-        pixel_step as usize,
-    )
-    .and_then(|frame| qr::decode(&frame))
-    {
+    let payload = match decode_frame(pixels, width, height, row_stride, pixel_step) {
         Ok(payload) => payload,
         Err(error) => return qr_status(error),
     };
     let uri = std::str::from_utf8(&payload).expect("the QR decoder returns UTF-8");
+    if !matches!(read_migration_uri(uri), Err(ImportError::NotAnExport)) {
+        return ST_EXPORT_CODE;
+    }
     deliver(otp::parse_uri(uri), out)
 }
 

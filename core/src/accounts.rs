@@ -17,9 +17,9 @@ use zeroize::Zeroizing;
 
 use crate::kdbx::{Database, Element, Entry, Group, KdbxError, NewField, Node};
 use crate::otp::{
-    self, Encoder, OtpError, TotpSettings, ATTRIBUTE_KEEPASS2_ALGORITHM, ATTRIBUTE_KEEPASS2_LENGTH,
-    ATTRIBUTE_KEEPASS2_PERIOD, ATTRIBUTE_KEEPASS2_SECRET, ATTRIBUTE_OTP, ATTRIBUTE_SEED,
-    ATTRIBUTE_SETTINGS,
+    self, Encoder, OtpError, ParsedUri, TotpSettings, ATTRIBUTE_KEEPASS2_ALGORITHM,
+    ATTRIBUTE_KEEPASS2_LENGTH, ATTRIBUTE_KEEPASS2_PERIOD, ATTRIBUTE_KEEPASS2_SECRET, ATTRIBUTE_OTP,
+    ATTRIBUTE_SEED, ATTRIBUTE_SETTINGS,
 };
 
 pub const UUID_LENGTH: usize = 16;
@@ -122,6 +122,33 @@ pub fn list(database: &Database) -> Result<Vec<Account>, KdbxError> {
     // Stable, so accounts the order does not name keep document order.
     accounts.sort_by_key(|account| position.get(&account.uuid).copied().unwrap_or(usize::MAX));
     Ok(accounts)
+}
+
+/// For each candidate, whether an account outside the recycle bin already
+/// has its secret: the same secret is the same account at the service,
+/// whatever its name.
+pub fn duplicates(database: &Database, candidates: &[ParsedUri]) -> Result<Vec<bool>, KdbxError> {
+    let sync_entry = database.sync_entry();
+    let mut known = Vec::new();
+    for listed in database.entries()? {
+        let Some(uuid) = listed.entry.uuid() else {
+            continue;
+        };
+        if Some(uuid) == sync_entry || database.in_recycle_bin(&uuid)? {
+            continue;
+        }
+        if let Ok(Some(settings)) = entry_settings(&listed.entry) {
+            known.push(settings);
+        }
+    }
+    Ok(candidates
+        .iter()
+        .map(|candidate| {
+            known
+                .iter()
+                .any(|settings| settings.secret() == candidate.settings.secret())
+        })
+        .collect())
 }
 
 /// Moves the account with `uuid` in front of the account `before`, or to

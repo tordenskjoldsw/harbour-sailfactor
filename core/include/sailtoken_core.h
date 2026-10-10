@@ -34,6 +34,10 @@ extern "C" {
 #define ST_INVALID_SECRET 15
 #define ST_INVALID_SETTINGS 16
 #define ST_NO_CODE 17
+#define ST_ALREADY_SCANNED 18
+#define ST_NOT_EXPORT 19
+#define ST_OTHER_EXPORT 20
+#define ST_EXPORT_CODE 21
 
 #define ST_TEXT_ISSUER 0u
 #define ST_TEXT_NAME 1u
@@ -69,6 +73,7 @@ extern "C" {
 typedef struct StDatabase StDatabase;
 typedef struct StPending StPending;
 typedef struct StAccountList StAccountList;
+typedef struct StImport StImport;
 
 /* Text owned by the core; release it with st_string_free, which wipes it. */
 typedef struct StString {
@@ -83,6 +88,16 @@ typedef struct StBytes {
 } StBytes;
 
 /* What st_database_merge changed. */
+/* What a complete import holds: accounts to offer, and entries skipped
+ * because they are counter-based, of a kind SailToken does not compute, or
+ * unreadable. */
+typedef struct StImportCounts {
+    size_t accounts;
+    size_t hotp;
+    size_t unsupported;
+    size_t invalid;
+} StImportCounts;
+
 typedef struct StMergeChanges {
     size_t added;
     size_t modified;
@@ -189,9 +204,9 @@ int32_t st_database_empty_recycle_bin(StDatabase *database, int64_t now, bool *c
  * Accounts waiting to be added. A camera frame has one byte of brightness
  * per pixel, pixel_step bytes (1 to 4) apart and row_stride bytes per row,
  * at most ST_MAX_FRAME_DIMENSION pixels per side; ST_NOT_FOUND means no QR
- * code in it. A
- * typed secret is Base32 with digits 1 to 10 and a period of 1 to 86400
- * seconds; its issuer and name are empty.
+ * code in it, ST_EXPORT_CODE an export code of another app, which the
+ * import reads. A typed secret is Base32 with digits 1 to 10 and a period
+ * of 1 to 86400 seconds; its issuer and name are empty.
  */
 int32_t st_pending_from_frame(const uint8_t *pixels, size_t length, uint32_t width,
                               uint32_t height, uint32_t row_stride, uint32_t pixel_step,
@@ -204,6 +219,32 @@ int32_t st_pending_text(const StPending *pending, uint32_t column, StString *out
 int32_t st_pending_code(const StPending *pending, int64_t now, StString *code_out,
                         uint32_t *remaining_out);
 void st_pending_free(StPending *pending);
+
+/*
+ * Import from another app: its export codes (Google Authenticator's
+ * otpauth-migration format) are scanned one by one, in any order. A frame
+ * is read as for st_pending_from_frame. ST_OK: a new code;
+ * ST_ALREADY_SCANNED: a code scanned before; ST_NOT_EXPORT: a QR code that
+ * is no export code; ST_OTHER_EXPORT: a code of another export;
+ * ST_UNSUPPORTED_FORMAT: an export code SailToken cannot read; ST_CORRUPTED:
+ * a QR code that could not be decoded. scanned_out and size_out count the
+ * codes scanned and the codes of the export (0 before the first); the
+ * import is complete when they are equal. The other functions need a
+ * complete import. st_import_duplicates writes 1 per account whose secret
+ * the file already has; st_import_add adds the accounts whose selected
+ * byte is not 0 and reports how many it added, also on an error.
+ */
+StImport *st_import_new(void);
+int32_t st_import_from_frame(StImport *import, const uint8_t *pixels, size_t length,
+                             uint32_t width, uint32_t height, uint32_t row_stride,
+                             uint32_t pixel_step, uint32_t *scanned_out, uint32_t *size_out);
+int32_t st_import_counts(const StImport *import, StImportCounts *out);
+int32_t st_import_text(const StImport *import, size_t index, uint32_t column, StString *out);
+int32_t st_import_duplicates(const StDatabase *database, const StImport *import,
+                             uint8_t *flags_out, size_t count);
+int32_t st_import_add(StDatabase *database, const StImport *import, const uint8_t *selected,
+                      size_t count, int64_t now, size_t *added_out);
+void st_import_free(StImport *import);
 
 #ifdef __cplusplus
 }

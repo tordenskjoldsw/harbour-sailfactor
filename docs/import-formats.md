@@ -86,8 +86,9 @@ OtpParameters
   a QR code holds at most 2953 bytes), at most 100 accounts per code,
   batch size at most 50 (`MAX_BATCH_SIZE`), secret at most 512 bytes
   (`MAX_SECRET_LENGTH`, as for every account), names at most 1024
-  bytes. The scanner's payload limit (`qr::MAX_PAYLOAD_LENGTH`, now
-  2048) has to grow to hold a full code.
+  bytes. The scanner accepts payloads up to 4096 bytes
+  (`qr::MAX_PAYLOAD_LENGTH`), above the 2953 bytes of a QR code in byte
+  mode, so a full export code fits.
 
 ## 2. Aegis vault files
 
