@@ -74,6 +74,12 @@ Dialog {
             }
 
             Paragraph {
+                font.pixelSize: Theme.fontSizeSmall
+                color: Theme.secondaryHighlightColor
+                text: qsTr("Google Authenticator exports no time step, so every account gets 30 seconds, as in Google Authenticator. If a service rejects a code, its account may use another time step.")
+            }
+
+            Paragraph {
                 visible: dialog.skipped > 0
                 font.pixelSize: Theme.fontSizeSmall
                 color: Theme.secondaryHighlightColor
